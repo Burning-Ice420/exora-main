@@ -54,43 +54,7 @@ export default function RightSidebar() {
       </div>
 
       {/* Upcoming Events */}
-      <div className="p-4 border-b border-border">
-        <div className="flex items-center gap-2 mb-3">
-          <Calendar size={16} className="text-primary" />
-          <h3 className="text-sm font-semibold text-foreground">Upcoming Events</h3>
-        </div>
-        <div className="space-y-3">
-          {upcomingEvents.map((event, idx) => (
-            <motion.div
-              key={event.name}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3, delay: idx * 0.1 }}
-              className="glass-effect rounded-lg p-3 hover:bg-white/10 smooth-transition cursor-pointer"
-            >
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{event.name}</p>
-                  <div className="flex items-center gap-1 mt-1">
-                    <MapPin size={12} className="text-muted-foreground" />
-                    <p className="text-xs text-muted-foreground">{event.location}</p>
-                  </div>
-                </div>
-                <span className="text-xs font-semibold text-primary">{event.date}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1">
-                  <Users size={12} className="text-muted-foreground" />
-                  <p className="text-xs text-muted-foreground">{event.participants} going</p>
-                </div>
-                <Button size="sm" variant="ghost" className="text-xs px-2 py-1 h-auto">
-                  Join
-                </Button>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
+  
 
       {/* Quick Actions */}
       <div className="p-4 border-b border-border">

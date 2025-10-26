@@ -1,5 +1,5 @@
 // API layer for all backend communication
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
 
 class ApiClient {
   constructor() {
@@ -109,6 +109,13 @@ class ApiClient {
     return response
   }
 
+  async getUserById(userId) {
+    console.log('API: Getting user by ID:', userId)
+    const result = await this.request(`/api/users/${userId}`)
+    console.log('API: User response:', result)
+    return result
+  }
+
   async updateProfile(userData) {
     return await this.request('/api/auth/profile', {
       method: 'PUT',
@@ -197,6 +204,12 @@ class ApiClient {
 
   async acceptConnectionRequest(connectionId) {
     return await this.request(`/api/connections/${connectionId}/accept`, {
+      method: 'POST',
+    })
+  }
+
+  async rejectConnectionRequest(connectionId) {
+    return await this.request(`/api/connections/${connectionId}/reject`, {
       method: 'POST',
     })
   }
@@ -319,6 +332,48 @@ class ApiClient {
   async deleteBlock(blockId) {
     return await this.request(`/api/blocks/${blockId}`, {
       method: 'DELETE',
+    })
+  }
+
+  // Trip Request API methods
+  async sendTripJoinRequest(tripId, message = '') {
+    return await this.request(`/api/trip-requests/${tripId}/request`, {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    })
+  }
+
+  async getTripJoinRequests(tripId) {
+    return await this.request(`/api/trip-requests/${tripId}/requests`)
+  }
+
+  async acceptTripJoinRequest(requestId) {
+    return await this.request(`/api/trip-requests/requests/${requestId}/accept`, {
+      method: 'POST',
+    })
+  }
+
+  async rejectTripJoinRequest(requestId) {
+    return await this.request(`/api/trip-requests/requests/${requestId}/reject`, {
+      method: 'POST',
+    })
+  }
+
+  async getMyTripRequests() {
+    return await this.request('/api/trip-requests/my-requests')
+  }
+
+  async getMyTripRequestsAsOwner() {
+    return await this.request('/api/trip-requests/my-trips-requests')
+  }
+
+  async getMyChatRooms() {
+    return await this.request('/api/trip-requests/my-chat-rooms')
+  }
+
+  async deleteChatRoom(chatRoomId) {
+    return await this.request(`/api/trip-requests/chat-rooms/${chatRoomId}`, {
+      method: 'DELETE'
     })
   }
 

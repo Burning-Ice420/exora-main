@@ -9,9 +9,11 @@ import RightSidebar from "./right-sidebar"
 import ImageUpload from "@/components/ui/image-upload"
 import api from "@/server/api"
 import { useAuth } from "@/contexts/AuthContext"
+import { useRouter } from "next/navigation"
 
 export default function FeedScreen() {
   const { user } = useAuth()
+  const router = useRouter()
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [createForm, setCreateForm] = useState({
@@ -257,7 +259,19 @@ export default function FeedScreen() {
             >
             {/* Post Header */}
             <div className="p-4 border-b border-border/50 flex items-center justify-between">
-              <div className="flex items-center gap-3">
+              <div 
+                className="flex items-center gap-3 cursor-pointer hover:bg-white/5 rounded-lg p-2 -m-2 smooth-transition"
+                onClick={() => {
+                  if (post.userId?._id) {
+                    // If it's the current user's own post, redirect to profile page
+                    if (post.userId._id === user?._id) {
+                      router.push('/profile')
+                    } else {
+                      router.push(`/user/${post.userId._id}`)
+                    }
+                  }
+                }}
+              >
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/40 to-primary/20 border-2 border-primary flex items-center justify-center text-lg overflow-hidden">
                   {post.userId?.profileImage?.secureUrl || post.userId?.profileImage?.url ? (
                     <img 
@@ -270,7 +284,7 @@ export default function FeedScreen() {
                   )}
                 </div>
                 <div>
-                  <p className="font-semibold text-foreground text-sm">{post.userId?.name || "Unknown User"}</p>
+                  <p className="font-semibold text-foreground text-sm hover:text-primary smooth-transition">{post.userId?.name || "Unknown User"}</p>
                   <p className="text-xs text-muted-foreground">{post.locationTag || "Somewhere"}</p>
                 </div>
               </div>
@@ -375,7 +389,19 @@ export default function FeedScreen() {
                     <div className="space-y-3">
                       {post.comments.map((comment, index) => (
                         <div key={comment._id || `comment-${index}-${comment.timestamp}`} className="flex gap-3">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/40 to-primary/20 border border-primary flex items-center justify-center text-sm overflow-hidden flex-shrink-0">
+                          <div 
+                            className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/40 to-primary/20 border border-primary flex items-center justify-center text-sm overflow-hidden flex-shrink-0 cursor-pointer hover:scale-105 smooth-transition"
+                            onClick={() => {
+                              if (comment.userId?._id) {
+                                // If it's the current user's own comment, redirect to profile page
+                                if (comment.userId._id === user?._id) {
+                                  router.push('/profile')
+                                } else {
+                                  router.push(`/user/${comment.userId._id}`)
+                                }
+                              }
+                            }}
+                          >
                             {comment.userId?.profileImage?.secureUrl || comment.userId?.profileImage?.url ? (
                               <img 
                                 src={comment.userId.profileImage.secureUrl || comment.userId.profileImage.url} 
@@ -388,7 +414,21 @@ export default function FeedScreen() {
                           </div>
                           <div className="flex-1 space-y-1">
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-semibold text-foreground">{comment.userId?.name || "Unknown"}</span>
+                              <span 
+                                className="text-sm font-semibold text-foreground cursor-pointer hover:text-primary smooth-transition"
+                                onClick={() => {
+                                  if (comment.userId?._id) {
+                                    // If it's the current user's own comment, redirect to profile page
+                                    if (comment.userId._id === user?._id) {
+                                      router.push('/profile')
+                                    } else {
+                                      router.push(`/user/${comment.userId._id}`)
+                                    }
+                                  }
+                                }}
+                              >
+                                {comment.userId?.name || "Unknown"}
+                              </span>
                               <span className="text-xs text-muted-foreground">
                                 {new Date(comment.timestamp).toLocaleDateString()}
                               </span>

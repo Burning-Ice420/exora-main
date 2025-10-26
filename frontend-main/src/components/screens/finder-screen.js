@@ -1,13 +1,20 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { MapPin, Users, Clock, Filter, X, Check, Loader2 } from "lucide-react"
+import { MapPin, Users, Clock, Filter, X, Check, Loader2, UserPlus, MessageCircle, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { motion, AnimatePresence } from "framer-motion"
 import api from "@/server/api"
 import Map from "@/components/ui/map"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/contexts/AuthContext"
+import TripRequestsManager from "@/components/ui/trip-requests-manager"
+import FirebaseChat from "@/components/ui/firebase-chat"
+import { useToast } from "@/components/ui/toast"
 
 export default function FinderScreen() {
+  const router = useRouter()
+  const { user } = useAuth()
   const [selectedTrip, setSelectedTrip] = useState(null)
   const [showFilters, setShowFilters] = useState(false)
   const [requestSent, setRequestSent] = useState(null)
@@ -17,6 +24,11 @@ export default function FinderScreen() {
     category: "all",
     priceRange: "all",
   })
+  const [showRequestsModal, setShowRequestsModal] = useState(false)
+  const [showChat, setShowChat] = useState(false)
+  const [currentChatRoom, setCurrentChatRoom] = useState(null)
+  const [joinMessage, setJoinMessage] = useState("")
+  const [sendingRequest, setSendingRequest] = useState(false)
 
   // Load public trips on component mount
   useEffect(() => {
@@ -131,6 +143,47 @@ export default function FinderScreen() {
     }
   }
 
+  const { success, error } = useToast()
+
+  const handleJoinRequest = async (trip) => {
+    if (!trip) return
+
+    try {
+      setSendingRequest(true)
+      const response = await api.sendTripJoinRequest(trip._id, joinMessage)
+      
+      if (response.status === 'success') {
+        success('Join Request Sent', `Your request to join "${trip.name}" has been sent!`)
+        setJoinMessage("")
+        setRequestSent(trip._id)
+        setTimeout(() => setRequestSent(null), 3000)
+      } else {
+        throw new Error(response.message || 'Failed to send join request')
+      }
+    } catch (err) {
+      console.error('Failed to send join request:', err)
+      error('Request Failed', err.message || 'Failed to send join request. Please try again.')
+    } finally {
+      setSendingRequest(false)
+    }
+  }
+
+
+  const handleManageRequests = (trip) => {
+    setSelectedTrip(trip)
+    setShowRequestsModal(true)
+  }
+
+  const handleAcceptRequest = (chatRoom) => {
+    setCurrentChatRoom(chatRoom)
+    setShowRequestsModal(false)
+    setShowChat(true)
+  }
+
+  const isTripOwner = (trip) => {
+    return trip.createdBy?._id === user?._id
+  }
+
   const filteredTrips = (trips || []).filter((trip) => {
     if (filters.category !== "all" && trip.category !== filters.category) return false
     if (filters.priceRange === "free" && trip.budget !== 0) return false
@@ -234,7 +287,22 @@ export default function FinderScreen() {
                       <h3 className="font-semibold text-foreground text-sm group-hover:text-primary smooth-transition line-clamp-1">
                         {trip.name}
                       </h3>
-                      <p className="text-xs text-muted-foreground">by {trip.createdBy?.name || 'Unknown'}</p>
+                      <p 
+                        className="text-xs text-muted-foreground hover:text-primary cursor-pointer smooth-transition"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (trip.createdBy?._id) {
+                            // If it's the current user's own trip, redirect to profile page
+                            if (trip.createdBy._id === user?._id) {
+                              router.push('/profile')
+                            } else {
+                              router.push(`/user/${trip.createdBy._id}`)
+                            }
+                          }
+                        }}
+                      >
+                        by {trip.createdBy?.name || 'Unknown'}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -298,11 +366,24 @@ export default function FinderScreen() {
                 <div className="flex-1">
                   <h2 className="text-lg font-bold text-foreground mb-1">{selectedTrip.name}</h2>
                   <p className="text-xs text-muted-foreground mb-2">{selectedTrip.location}</p>
-                  <div className="flex items-center gap-2">
+                  <div 
+                    className="flex items-center gap-2 cursor-pointer hover:bg-white/5 rounded-lg p-2 -m-2 smooth-transition"
+                    onClick={() => {
+                      if (selectedTrip.createdBy?._id) {
+                        // If it's the current user's own trip, redirect to profile page
+                        if (selectedTrip.createdBy._id === user?._id) {
+                          router.push('/profile')
+                        } else {
+                          router.push(`/user/${selectedTrip.createdBy._id}`)
+                        }
+                        setSelectedTrip(null)
+                      }
+                    }}
+                  >
                     <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary/40 to-primary/20 border border-primary flex items-center justify-center text-xs">
                       {selectedTrip.createdBy?.name?.charAt(0) || 'U'}
                     </div>
-                    <span className="text-xs font-medium text-foreground">Created by {selectedTrip.createdBy?.name || 'Unknown'}</span>
+                    <span className="text-xs font-medium text-foreground hover:text-primary smooth-transition">Created by {selectedTrip.createdBy?.name || 'Unknown'}</span>
                   </div>
                 </div>
               </div>
@@ -373,7 +454,31 @@ export default function FinderScreen() {
               )}
 
               {/* CTA */}
-              {requestSent === (selectedTrip._id || selectedTrip.id) ? (
+              {isTripOwner(selectedTrip) ? (
+                <div className="space-y-2">
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleManageRequests(selectedTrip)
+                    }}
+                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-2 rounded-lg smooth-transition silver-glow text-sm"
+                  >
+                    <Users size={16} className="mr-2" />
+                    Manage Join Requests
+                  </Button>
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleJoinRequest(selectedTrip)
+                    }}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    <MessageCircle size={16} className="mr-2" />
+                    Open Trip Chat
+                  </Button>
+                </div>
+              ) : requestSent === (selectedTrip._id || selectedTrip.id) ? (
                 <motion.div
                   initial={{ scale: 0.9 }}
                   animate={{ scale: 1 }}
@@ -383,17 +488,67 @@ export default function FinderScreen() {
                   Request Sent!
                 </motion.div>
               ) : (
-                <Button
-                  onClick={() => handleRequestToJoin(selectedTrip._id || selectedTrip.id)}
-                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-2 rounded-lg smooth-transition silver-glow text-sm"
-                >
-                  Request to Join Trip
-                </Button>
+                <div className="space-y-3">
+                  {/* Join Request Form */}
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-2 block">
+                      Message to Trip Owner (Optional)
+                    </label>
+                    <textarea
+                      value={joinMessage}
+                      onChange={(e) => setJoinMessage(e.target.value)}
+                      placeholder="Tell the trip owner why you'd like to join..."
+                      className="w-full p-3 border border-border rounded-lg bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
+                      rows={3}
+                      maxLength={500}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {joinMessage.length}/500 characters
+                    </p>
+                  </div>
+                  
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleJoinRequest(selectedTrip)
+                    }}
+                    disabled={sendingRequest}
+                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-2 rounded-lg smooth-transition silver-glow text-sm"
+                  >
+                    {sendingRequest ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin mr-2" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus size={16} className="mr-2" />
+                        Request to Join Trip
+                      </>
+                    )}
+                  </Button>
+                </div>
               )}
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Trip Requests Manager */}
+      <TripRequestsManager
+        isOpen={showRequestsModal}
+        onClose={() => setShowRequestsModal(false)}
+        tripId={selectedTrip?._id}
+        onAccept={handleAcceptRequest}
+      />
+
+      {/* Firebase Chat */}
+      <FirebaseChat
+        isOpen={showChat}
+        onClose={() => setShowChat(false)}
+        chatRoom={currentChatRoom}
+        currentUser={user}
+      />
     </div>
   )
 }

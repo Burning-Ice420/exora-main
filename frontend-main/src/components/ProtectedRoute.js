@@ -3,6 +3,7 @@
 import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
+import Loader from '@/components/ui/loader'
 
 export default function ProtectedRoute({ children, redirectTo = '/login' }) {
   const { isAuthenticated, loading } = useAuth()
@@ -16,16 +17,8 @@ export default function ProtectedRoute({ children, redirectTo = '/login' }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="w-16 h-16 bg-primary/20 rounded-2xl flex items-center justify-center mx-auto animate-pulse">
-            <div className="w-8 h-8 bg-primary rounded-full animate-spin"></div>
-          </div>
-          <div>
-            <h2 className="text-xl font-bold text-foreground">Loading...</h2>
-            <p className="text-muted-foreground">Please wait while we verify your authentication</p>
-          </div>
-        </div>
+      <div className="min-h-screen bg-background">
+        <Loader />
       </div>
     )
   }

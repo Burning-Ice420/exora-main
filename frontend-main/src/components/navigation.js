@@ -2,12 +2,18 @@
 
 import { useState } from "react"
 import { motion } from "framer-motion"
-import { Home as HomeIcon, Search, Compass, Users, User, Settings } from "lucide-react"
+import { Home as HomeIcon, Search, Compass, Users, User, Settings, MessageCircle } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import ConnectionsManager from "./connections-manager"
+import ChatSidebar from "./ui/chat-sidebar"
+import { useChat } from "@/contexts/ChatContext"
 
 export default function Navigation() {
   const pathname = usePathname()
+  const [showChatSidebar, setShowChatSidebar] = useState(false)
+  const { unreadCount } = useChat()
+
 
   const tabs = [
     { id: "feed", label: "Feed", icon: HomeIcon, href: "/feed" },
@@ -53,6 +59,30 @@ export default function Navigation() {
             </Link>
           )
         })}
+        
+        {/* Connections Manager */}
+        <div className="ml-5 mt-2">
+          <ConnectionsManager />
+        </div>
+
+        {/* Chat Button */}
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setShowChatSidebar(true)}
+          className="w-14 h-14 rounded-xl flex items-center ml-5 mt-2 justify-center text-muted-foreground hover:text-foreground hover:bg-white/5 smooth-transition relative"
+        >
+          <MessageCircle size={22} />
+          {unreadCount > 0 && (
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold"
+            >
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </motion.div>
+          )}
+        </motion.button>
       </motion.div>
 
       {/* Mobile Bottom Navigation */}
@@ -77,8 +107,40 @@ export default function Navigation() {
               </Link>
             )
           })}
+          
+          {/* Mobile Chat Button */}
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowChatSidebar(true)}
+            className="flex flex-col items-center gap-1 px-4 py-2 rounded-lg smooth-transition text-muted-foreground hover:text-foreground relative"
+          >
+            <div className="relative">
+              <MessageCircle size={20} />
+              {unreadCount > 0 && (
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold"
+                >
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </motion.div>
+              )}
+            </div>
+            <span className="text-xs font-medium">Chat</span>
+          </motion.button>
+
+          {/* Mobile Connections Manager */}
+          <div className="flex flex-col items-center gap-1">
+            <ConnectionsManager />
+          </div>
         </div>
       </div>
+
+      {/* Chat Sidebar */}
+      <ChatSidebar
+        isOpen={showChatSidebar}
+        onClose={() => setShowChatSidebar(false)}
+      />
     </>
   )
 }

@@ -60,6 +60,7 @@ app.use('/api/map', require('./routes/map'));
 app.use('/api/itineraries', require('./routes/itineraries'));
 app.use('/api/blocks', require('./routes/blocks'));
 app.use('/api/requests', require('./routes/requests'));
+app.use('/api/trip-requests', require('./routes/tripRequests'));
 app.use('/api/uploads', require('./routes/uploads'));
 
 // Health check endpoint
