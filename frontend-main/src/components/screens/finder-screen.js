@@ -312,7 +312,7 @@ export default function FinderScreen() {
         <div className="px-3 lg:px-4 py-2 lg:py-3">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-lg lg:text-xl font-bold text-foreground">exora Finder</h1>
+              <h1 className="text-lg lg:text-xl font-bold text-foreground">exora finder</h1>
               <p className="text-xs text-muted-foreground hidden sm:block">Discover experiences near you</p>
             </div>
             <Button

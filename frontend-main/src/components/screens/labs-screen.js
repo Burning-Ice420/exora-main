@@ -286,7 +286,7 @@ export default function LabsScreen() {
         <div className="sticky top-0 z-10 border-b border-border/30 bg-background/95 backdrop-blur-md shadow-sm px-3 lg:px-4 py-2 lg:py-3">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-lg lg:text-xl font-bold text-foreground">Trip Planning Lab</h1>
+              <h1 className="text-lg lg:text-xl font-bold text-foreground">exora labs</h1>
               <p className="text-xs text-muted-foreground hidden sm:block">Plan your perfect adventure</p>
             </div>
             <Button
