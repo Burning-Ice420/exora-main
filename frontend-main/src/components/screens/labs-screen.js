@@ -21,6 +21,32 @@ export default function LabsScreen() {
   const [savedTrips, setSavedTrips] = useState([])
   const [savedBlocks, setSavedBlocks] = useState([])
 
+  // Helper to get unique ID from item (handles both id and _id)
+  const getItemId = (item) => item.id || item._id
+
+  // Normalize itinerary items to always use 'id' instead of '_id'
+  // Ensures each item has a unique ID, even if duplicates exist
+  const normalizeItinerary = (itinerary) => {
+    if (!itinerary) return []
+    const seenIds = new Set()
+    return itinerary.map((item, index) => {
+      let id = item.id || item._id
+      
+      // If no ID or ID already seen, generate a unique one
+      if (!id || seenIds.has(id)) {
+        id = `${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`
+      }
+      
+      seenIds.add(id)
+      
+      return {
+        ...item,
+        id,
+        _id: undefined, // Remove _id to avoid confusion
+      }
+    })
+  }
+
   // Load saved trips and blocks on component mount
   useEffect(() => {
     const loadSavedData = async () => {
@@ -63,6 +89,10 @@ export default function LabsScreen() {
     if (savedTrip) {
       try {
         const tripData = JSON.parse(savedTrip)
+        // Normalize itinerary IDs when loading
+        if (tripData.itinerary) {
+          tripData.itinerary = normalizeItinerary(tripData.itinerary)
+        }
         setTrip(tripData)
       } catch (error) {
         console.error('Failed to load trip from localStorage:', error)
@@ -86,9 +116,17 @@ export default function LabsScreen() {
 
   const handleAddExperience = (experience) => {
     if (trip) {
+      // Ensure experience has a unique ID
+      const experienceId = experience.id || experience._id || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      const normalizedExperience = {
+        ...experience,
+        id: experienceId,
+        _id: undefined,
+      }
+      
       const updatedTrip = {
         ...trip,
-        itinerary: [...trip.itinerary, experience],
+        itinerary: [...normalizeItinerary(trip.itinerary), normalizedExperience],
       }
       setTrip(updatedTrip)
       
@@ -101,7 +139,22 @@ export default function LabsScreen() {
     if (trip) {
       const updatedTrip = {
         ...trip,
-        itinerary: trip.itinerary.filter((item) => item.id !== id),
+        itinerary: normalizeItinerary(trip.itinerary).filter((item) => getItemId(item) !== id),
+      }
+      setTrip(updatedTrip)
+      
+      // Save to localStorage for persistence
+      localStorage.setItem('currentTrip', JSON.stringify(updatedTrip))
+    }
+  }
+
+  const handleUpdateExperience = (id, updates) => {
+    if (trip) {
+      const updatedTrip = {
+        ...trip,
+        itinerary: normalizeItinerary(trip.itinerary).map((item) => 
+          getItemId(item) === id ? { ...item, ...updates } : item
+        ),
       }
       setTrip(updatedTrip)
       
@@ -329,7 +382,16 @@ export default function LabsScreen() {
                   animate={{ opacity: 1, y: 0 }}
                   whileHover={{ y: -4 }}
                   className="glass-effect rounded-xl p-4 space-y-3 hover:bg-primary/5 hover:shadow-md smooth-transition cursor-pointer group"
-                  onClick={() => setTrip(savedTrip)}
+                  onClick={() => {
+                    // Normalize itinerary IDs when loading a saved trip
+                    const normalizedTrip = {
+                      ...savedTrip,
+                      itinerary: normalizeItinerary(savedTrip.itinerary || [])
+                    }
+                    setTrip(normalizedTrip)
+                    // Save to localStorage
+                    localStorage.setItem('currentTrip', JSON.stringify(normalizedTrip))
+                  }}
                 >
                   <div className="flex items-start justify-between">
                     <div>
@@ -386,8 +448,18 @@ export default function LabsScreen() {
     )
   }
 
-  const totalSpent = trip.itinerary.reduce((sum, item) => sum + item.price, 0)
-  const remainingBudget = trip.budget - totalSpent
+  // Calculate total spent from itinerary, handling undefined/null prices
+  const totalSpent = trip.itinerary.reduce((sum, item) => {
+    const price = item.price || 0
+    return sum + (typeof price === 'number' ? price : 0)
+  }, 0)
+  
+  // Ensure budget is a valid number
+  const budget = trip.budget || 0
+  const remainingBudget = budget - totalSpent // Can be negative if over budget
+  
+  // Calculate progress percentage (can exceed 100% if over budget)
+  const progressPercentage = budget > 0 ? (totalSpent / budget) * 100 : 0
 
   return (
     <div className="w-full h-full bg-background flex flex-col overflow-hidden pb-0">
@@ -426,7 +498,7 @@ export default function LabsScreen() {
         </div>
         <div className="text-right">
           <p className="text-xs text-muted-foreground">Budget</p>
-          <p className="text-sm font-bold text-primary">₹{trip.budget.toLocaleString()}</p>
+          <p className="text-sm font-bold text-primary">₹{budget.toLocaleString()}</p>
         </div>
       </motion.div>
 
@@ -438,18 +510,42 @@ export default function LabsScreen() {
         className="border-b border-border bg-background/50 px-4 py-3"
       >
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-medium text-foreground">Spent: ₹{totalSpent.toLocaleString()}</span>
+          <span className="text-xs font-medium text-foreground">
+            Spent: ₹{totalSpent.toLocaleString('en-IN')}
+          </span>
           <span className={`text-xs font-medium ${remainingBudget >= 0 ? "text-primary" : "text-destructive"}`}>
-            Remaining: ₹{remainingBudget.toLocaleString()}
+            {remainingBudget >= 0 ? "Remaining: " : "Over by: "}₹{Math.abs(remainingBudget).toLocaleString('en-IN')}
           </span>
         </div>
-        <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+        <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden relative">
           <motion.div
-            className="h-full bg-gradient-silver"
+            className={`h-full ${
+              remainingBudget >= 0 
+                ? "bg-gradient-to-r from-primary to-primary/80" 
+                : "bg-gradient-to-r from-destructive to-destructive/80"
+            }`}
             initial={{ width: 0 }}
-            animate={{ width: `${(totalSpent / trip.budget) * 100}%` }}
-            transition={{ duration: 0.5 }}
+            animate={{ width: `${Math.min(100, progressPercentage)}%` }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
           />
+          {/* Over budget indicator - shows when exceeded */}
+          {remainingBudget < 0 && (
+            <div 
+              className="absolute inset-0 bg-destructive/10 border border-destructive/30 rounded-full"
+              style={{ width: '100%' }}
+            />
+          )}
+        </div>
+        {/* Budget percentage indicator */}
+        <div className="flex items-center justify-between mt-1.5">
+          <span className="text-[10px] text-muted-foreground">
+            {budget > 0 ? `${progressPercentage.toFixed(1)}% of budget used` : 'Budget not set'}
+          </span>
+          {remainingBudget < 0 && (
+            <span className="text-[10px] text-destructive font-medium">
+              ⚠️ Over budget
+            </span>
+          )}
         </div>
       </motion.div>
 
@@ -467,6 +563,7 @@ export default function LabsScreen() {
             onRemoveExperience={handleRemoveExperience}
             onSelectExperience={setSelectedExperience}
             onAddExperience={handleAddExperience}
+            onUpdateExperience={handleUpdateExperience}
           />
         </motion.div>
 
@@ -564,9 +661,22 @@ export default function LabsScreen() {
                   <span className="text-xs font-semibold text-foreground">{selectedExperience.duration}</span>
                 </div>
                 <div className="flex items-center justify-between p-2 bg-muted/50 rounded-lg border border-border/50">
-                  <span className="text-xs text-muted-foreground">Time Slot</span>
-                  <span className="text-xs font-semibold text-foreground capitalize">
-                    {selectedExperience.timeSlot}
+                  <span className="text-xs text-muted-foreground">Time</span>
+                  <span className="text-xs font-semibold text-foreground">
+                    {selectedExperience.startTime && selectedExperience.endTime
+                      ? (() => {
+                          const formatTime = (hour) => {
+                            const h = Math.floor(hour)
+                            const m = Math.round((hour - h) * 60)
+                            const period = h >= 12 ? "PM" : "AM"
+                            const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h
+                            return `${displayHour}:${m.toString().padStart(2, "0")} ${period}`
+                          }
+                          return `${formatTime(selectedExperience.startTime)} - ${formatTime(selectedExperience.endTime)}`
+                        })()
+                      : selectedExperience.timeSlot
+                      ? selectedExperience.timeSlot.charAt(0).toUpperCase() + selectedExperience.timeSlot.slice(1)
+                      : "TBD"}
                   </span>
                 </div>
               </div>

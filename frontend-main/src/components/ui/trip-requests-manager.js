@@ -2,22 +2,50 @@
 
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Users, Check, X, MessageCircle, Loader2 } from "lucide-react"
+import { Users, Check, X, MessageCircle, Loader2, Clock, Calendar, ChevronDown, ChevronUp } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/toast"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/contexts/AuthContext"
 import api from "@/server/api"
 
 export default function TripRequestsManager({ tripId, isOpen, onClose, onAccept }) {
+  const router = useRouter()
+  const { user } = useAuth()
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState({})
+  const [expandedItineraries, setExpandedItineraries] = useState({}) // Track which request's itineraries are expanded
   const { success, error } = useToast()
 
   useEffect(() => {
     if (isOpen) {
       loadRequests()
+      // Reset expanded state when modal opens
+      setExpandedItineraries({})
     }
   }, [isOpen, tripId])
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isOpen && Object.keys(expandedItineraries).length > 0) {
+        const target = event.target
+        // Check if click is outside the dropdown
+        if (!target.closest('[data-itinerary-dropdown]')) {
+          setExpandedItineraries({})
+        }
+      }
+    }
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isOpen, expandedItineraries])
 
   const loadRequests = async () => {
     try {
@@ -29,6 +57,13 @@ export default function TripRequestsManager({ tripId, isOpen, onClose, onAccept 
         const filteredRequests = tripId 
           ? allRequests.filter(req => req.tripId?._id === tripId)
           : allRequests
+        // Log for debugging
+        console.log('Loaded requests:', filteredRequests.map(r => ({
+          id: r._id,
+          name: r.requesterId?.name,
+          hasSelectedItineraries: !!r.selectedItineraries,
+          itineraryCount: r.selectedItineraries?.length || 0
+        })))
         setRequests(filteredRequests)
       }
     } catch (err) {
@@ -141,8 +176,21 @@ export default function TripRequestsManager({ tripId, isOpen, onClose, onAccept 
                     className="bg-card border border-border rounded-lg p-4"
                   >
                     <div className="flex items-start gap-4">
-                      {/* User Avatar */}
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/40 to-primary/20 border-2 border-primary flex items-center justify-center text-lg overflow-hidden">
+                      {/* User Avatar - Clickable */}
+                      <div 
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (request.requesterId._id) {
+                            if (request.requesterId._id === user?._id) {
+                              router.push('/profile')
+                            } else {
+                              router.push(`/user/${request.requesterId._id}`)
+                            }
+                            onClose()
+                          }
+                        }}
+                        className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/40 to-primary/20 border-2 border-primary flex items-center justify-center text-lg overflow-hidden cursor-pointer hover:scale-110 hover:shadow-lg hover:shadow-primary/30 smooth-transition"
+                      >
                         {request.requesterId.profileImage?.secureUrl || request.requesterId.profileImage?.url ? (
                           <img
                             src={request.requesterId.profileImage.secureUrl || request.requesterId.profileImage.url}
@@ -154,9 +202,22 @@ export default function TripRequestsManager({ tripId, isOpen, onClose, onAccept 
                         )}
                       </div>
 
-                      {/* Request Details */}
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-foreground">{request.requesterId.name}</h4>
+                      {/* Request Details - Clickable */}
+                      <div 
+                        className="flex-1 min-w-0 cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (request.requesterId._id) {
+                            if (request.requesterId._id === user?._id) {
+                              router.push('/profile')
+                            } else {
+                              router.push(`/user/${request.requesterId._id}`)
+                            }
+                            onClose()
+                          }
+                        }}
+                      >
+                        <h4 className="font-medium text-foreground hover:text-primary smooth-transition">{request.requesterId.name}</h4>
                         <p className="text-sm text-muted-foreground mb-2">
                           Wants to join your trip
                         </p>
@@ -165,13 +226,98 @@ export default function TripRequestsManager({ tripId, isOpen, onClose, onAccept 
                             "{request.message}"
                           </p>
                         )}
+                        {request.selectedItineraries && request.selectedItineraries.length > 0 && (
+                          <div className="mb-3">
+                            <p className="text-xs font-semibold text-foreground mb-2">
+                              Selected Itineraries: {request.selectedItineraries.length}
+                            </p>
+                          </div>
+                        )}
                         <p className="text-xs text-muted-foreground">
                           Requested {new Date(request.createdAt).toLocaleDateString()}
                         </p>
                       </div>
 
                       {/* Actions */}
-                      <div className="flex gap-2">
+                      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                        {/* Itineraries Dropdown - Always show if there are selected itineraries */}
+                        {request.selectedItineraries && request.selectedItineraries.length > 0 ? (
+                          <div className="relative" data-itinerary-dropdown>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setExpandedItineraries(prev => ({
+                                  ...prev,
+                                  [request._id]: !prev[request._id]
+                                }))
+                              }}
+                              className="text-primary hover:text-primary hover:bg-primary/10 flex items-center gap-1.5 px-2"
+                            >
+                              <span className="text-xs font-medium">Itineraries</span>
+                              {expandedItineraries[request._id] ? (
+                                <ChevronUp size={14} />
+                              ) : (
+                                <ChevronDown size={14} />
+                              )}
+                            </Button>
+                            
+                            {/* Dropdown Content */}
+                            <AnimatePresence>
+                              {expandedItineraries[request._id] && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: -10 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  exit={{ opacity: 0, y: -10 }}
+                                  className="absolute right-0 top-full mt-2 w-64 bg-background border border-border rounded-lg shadow-xl z-50 p-3 max-h-[300px] overflow-y-auto"
+                                >
+                                  <p className="text-xs font-semibold text-foreground mb-3">
+                                    Selected Itineraries ({request.selectedItineraries.length})
+                                  </p>
+                                  <div className="space-y-2">
+                                    {request.selectedItineraries.map((itinerary, idx) => {
+                                      const formatTime = (hour) => {
+                                        if (hour === undefined || hour === null) return ''
+                                        const h = Math.floor(hour)
+                                        const m = Math.round((hour - h) * 60)
+                                        const period = h >= 12 ? "PM" : "AM"
+                                        const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h
+                                        return `${displayHour}:${m.toString().padStart(2, "0")} ${period}`
+                                      }
+                                      
+                                      return (
+                                        <div key={idx} className="bg-muted/30 rounded-md p-2 border border-border/50">
+                                          <p className="text-xs font-medium text-foreground mb-1.5">
+                                            {itinerary.experienceName || `Itinerary ${idx + 1}`}
+                                          </p>
+                                          <div className="flex flex-wrap gap-2">
+                                            {itinerary.day && (
+                                              <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                                <Calendar size={10} />
+                                                <span>{new Date(itinerary.day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                                              </div>
+                                            )}
+                                            {itinerary.startTime !== undefined && (
+                                              <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                                <Clock size={10} />
+                                                <span>
+                                                  {formatTime(itinerary.startTime)}
+                                                  {itinerary.endTime && ` - ${formatTime(itinerary.endTime)}`}
+                                                </span>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      )
+                                    })}
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        ) : null}
+                        
                         <Button
                           size="sm"
                           variant="outline"

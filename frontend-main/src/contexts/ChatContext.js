@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from './AuthContext'
 import { rtdb } from '@/lib/firebase'
 import { ref, onValue, off } from 'firebase/database'
@@ -11,6 +11,12 @@ export function ChatProvider({ children }) {
   const [unreadCount, setUnreadCount] = useState(0)
   const [lastReadTimes, setLastReadTimes] = useState({})
   const { user } = useAuth()
+  const lastReadTimesRef = useRef({})
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    lastReadTimesRef.current = lastReadTimes
+  }, [lastReadTimes])
 
   useEffect(() => {
     if (!user || !rtdb) return
@@ -42,7 +48,8 @@ export function ChatProvider({ children }) {
           const messageUnsubscribe = onValue(messagesRef, (messagesSnapshot) => {
             if (messagesSnapshot.exists()) {
               const messages = messagesSnapshot.val()
-              const lastReadTime = lastReadTimes[roomId] || 0
+              // Use ref to get current value without causing re-renders
+              const lastReadTime = lastReadTimesRef.current[roomId] || 0
               
               // Count unread messages (messages after last read time and not sent by current user)
               const unreadInRoom = Object.values(messages).filter(message => 
@@ -73,19 +80,26 @@ export function ChatProvider({ children }) {
       off(chatRoomsRef)
       unsubscribes.forEach(unsub => unsub())
     }
-  }, [user, lastReadTimes])
+  }, [user]) // Removed lastReadTimes from dependencies
 
-  const markAsRead = (roomId) => {
-    setLastReadTimes(prev => ({
-      ...prev,
-      [roomId]: Date.now()
-    }))
-  }
+  const markAsRead = useCallback((roomId) => {
+    setLastReadTimes(prev => {
+      const currentTime = Date.now()
+      // Only update if the roomId doesn't exist or if time has significantly changed (avoid rapid updates)
+      if (prev[roomId] && (currentTime - prev[roomId]) < 1000) {
+        return prev // Recently updated, skip
+      }
+      return {
+        ...prev,
+        [roomId]: currentTime
+      }
+    })
+  }, [])
 
-  const markAllAsRead = () => {
+  const markAllAsRead = useCallback(() => {
     setLastReadTimes({})
     setUnreadCount(0)
-  }
+  }, [])
 
   return (
     <ChatContext.Provider value={{

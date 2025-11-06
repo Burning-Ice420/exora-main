@@ -1,8 +1,23 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Search, Plus } from "lucide-react"
+import { Search, Plus, X, Calendar, Clock } from "lucide-react"
+
+// Helper to format time
+const formatTime = (hour) => {
+  const h = Math.floor(hour)
+  const m = Math.round((hour - h) * 60)
+  const period = h >= 12 ? "PM" : "AM"
+  const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h
+  return `${displayHour}:${m.toString().padStart(2, "0")} ${period}`
+}
+
+// Parse duration
+const parseDuration = (duration) => {
+  const match = duration.match(/([\d.]+)\s*hours?/)
+  return match ? parseFloat(match[1]) : 2
+}
 
 const SUGGESTED_EXPERIENCES = [
   { id: "exp_1", name: "Windsurfing at Baga Beach", duration: "2 hours", price: 1200, category: "Adventure" },
@@ -18,6 +33,28 @@ const SUGGESTED_EXPERIENCES = [
 export default function ExperienceSidebar({ onAddExperience, trip }) {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState(null)
+  const [dragPreview, setDragPreview] = useState(null)
+  const [showTimeModal, setShowTimeModal] = useState(false)
+  const [selectedExperience, setSelectedExperience] = useState(null)
+  const [selectedDay, setSelectedDay] = useState("")
+  const [selectedHour, setSelectedHour] = useState(10)
+  const [selectedMinute, setSelectedMinute] = useState(0)
+
+  
+  // Create custom drag image (transparent to hide browser default)
+  const createDragImage = (experience) => {
+    // Create a transparent 1x1 pixel image to hide the browser's default drag image
+    const canvas = document.createElement('canvas')
+    canvas.width = 1
+    canvas.height = 1
+    const ctx = canvas.getContext('2d')
+    ctx.clearRect(0, 0, 1, 1)
+    
+    // Create an invisible image element
+    const img = new Image()
+    img.src = canvas.toDataURL()
+    return img
+  }
 
   const categories = Array.from(new Set(SUGGESTED_EXPERIENCES.map((exp) => exp.category)))
 
@@ -27,11 +64,69 @@ export default function ExperienceSidebar({ onAddExperience, trip }) {
     return matchesSearch && matchesCategory
   })
 
-  const handleAddExperience = (experience) => {
+  // Generate unique ID for experiences
+  const generateUniqueId = () => {
+    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+  }
+
+  // Get available dates from trip
+  const getAvailableDates = () => {
+    if (!trip) return []
+    const dates = []
+    const start = new Date(trip.startDate)
+    const end = new Date(trip.endDate)
+
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      dates.push(new Date(d).toISOString().split("T")[0])
+    }
+    return dates
+  }
+
+  const handleAddClick = (experience) => {
+    setSelectedExperience(experience)
+    const dates = getAvailableDates()
+    if (dates.length > 0) {
+      setSelectedDay(dates[0]) // Default to first day
+    }
+    setSelectedHour(10) // Default to 10 AM
+    setSelectedMinute(0)
+    setShowTimeModal(true)
+  }
+
+  const handleConfirmAdd = () => {
+    if (!selectedExperience || !selectedDay) return
+
+    const duration = parseDuration(selectedExperience.duration || "2 hours")
+    const startTime = selectedHour + selectedMinute / 60
+    const endTime = startTime + duration
+
     const newItem = {
-      id: Date.now().toString(),
+      id: generateUniqueId(),
+      day: selectedDay,
+      startTime: startTime,
+      endTime: endTime,
+      timeSlot: startTime < 12 ? "morning" : startTime < 17 ? "afternoon" : startTime < 21 ? "evening" : "night",
+      experienceId: selectedExperience.id,
+      experienceName: selectedExperience.name,
+      price: selectedExperience.price,
+      duration: selectedExperience.duration,
+      category: selectedExperience.category,
+    }
+
+    onAddExperience(newItem)
+    setShowTimeModal(false)
+    setSelectedExperience(null)
+  }
+
+  const handleAddExperience = (experience) => {
+    const duration = parseDuration(experience.duration || "2 hours")
+    const defaultStartTime = 10 // Default to 10 AM
+    const newItem = {
+      id: generateUniqueId(), // Use unique ID generator
       day: trip.startDate,
-      timeSlot: "morning",
+      startTime: defaultStartTime,
+      endTime: defaultStartTime + duration,
+      timeSlot: "morning", // Keep for backward compatibility
       experienceId: experience.id,
       experienceName: experience.name,
       price: experience.price,
@@ -40,8 +135,48 @@ export default function ExperienceSidebar({ onAddExperience, trip }) {
     onAddExperience(newItem)
   }
 
+  // Update drag preview position on mouse move
+  useEffect(() => {
+    if (!dragPreview) return
+    
+    const handleDragMove = (e) => {
+      setDragPreview(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : null)
+    }
+    
+    document.addEventListener('dragover', handleDragMove)
+    return () => {
+      document.removeEventListener('dragover', handleDragMove)
+    }
+  }, [dragPreview])
+
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden relative">
+      {/* Drag Preview Overlay - Follows cursor */}
+      {dragPreview && (
+        <div
+          className="fixed pointer-events-none z-[9999]"
+          style={{
+            left: `${dragPreview.x}px`,
+            top: `${dragPreview.y}px`,
+            transform: 'translate(-50%, -50%)',
+          }}
+        >
+          <div className="bg-primary/15 border-2 border-primary rounded-md p-2.5 shadow-2xl backdrop-blur-sm min-w-[180px] max-w-[220px]">
+            <div className="text-xs font-semibold text-foreground mb-1.5 truncate">
+              {dragPreview.name}
+            </div>
+            <div className="text-[10px] text-muted-foreground">
+              {dragPreview.duration || '2 hours'}
+            </div>
+            {dragPreview.price > 0 && (
+              <div className="text-[10px] text-primary font-medium mt-1">
+                ₹{dragPreview.price}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="px-6 py-4 border-b border-border">
         <h3 className="font-semibold text-foreground mb-4">Suggested for Goa</h3>
@@ -112,18 +247,37 @@ export default function ExperienceSidebar({ onAddExperience, trip }) {
                 transition={{ duration: 0.2, delay: idx * 0.05 }}
                 draggable
                 onDragStart={(e) => {
+                  const duration = parseDuration(exp.duration || "2 hours")
+                  const defaultStartTime = 10 // Default to 10 AM
                   const newItem = {
-                    id: Date.now().toString(),
+                    id: generateUniqueId(), // Use unique ID generator
                     day: trip.startDate,
-                    timeSlot: "morning",
+                    startTime: defaultStartTime,
+                    endTime: defaultStartTime + duration,
+                    timeSlot: "morning", // Keep for backward compatibility
                     experienceId: exp.id,
                     experienceName: exp.name,
                     price: exp.price,
                     duration: exp.duration,
                     category: exp.category
                   }
+                  
+                  // Create and set transparent drag image to hide browser default
+                  const dragImage = createDragImage(exp)
+                  e.dataTransfer.setDragImage(dragImage, 0, 0)
+                  
                   e.dataTransfer.setData("application/json", JSON.stringify(newItem))
                   e.dataTransfer.effectAllowed = "move"
+                  
+                  // Set drag preview for visual feedback
+                  setDragPreview({
+                    ...exp,
+                    x: e.clientX,
+                    y: e.clientY
+                  })
+                }}
+                onDragEnd={(e) => {
+                  setDragPreview(null)
                 }}
                 className="glass-effect rounded-lg p-4 space-y-2 hover:bg-white/10 smooth-transition group cursor-grab active:cursor-grabbing border border-border"
               >
@@ -135,7 +289,10 @@ export default function ExperienceSidebar({ onAddExperience, trip }) {
                   <motion.button
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
-                    onClick={() => handleAddExperience(exp)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleAddClick(exp)
+                    }}
                     className="p-1.5 rounded-lg bg-primary/20 text-primary hover:bg-primary/30 smooth-transition opacity-0 group-hover:opacity-100 flex-shrink-0"
                   >
                     <Plus size={16} />
@@ -160,6 +317,168 @@ export default function ExperienceSidebar({ onAddExperience, trip }) {
         <Plus size={18} />
         Add Custom
       </motion.button>
+
+      {/* Time and Day Selection Modal - Draggable Bottom Sheet */}
+      <AnimatePresence>
+        {showTimeModal && selectedExperience && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowTimeModal(false)}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
+            />
+            
+            {/* Draggable Bottom Sheet */}
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              drag="y"
+              dragConstraints={{ top: 0, bottom: 0 }}
+              dragElastic={0.2}
+              onDragEnd={(event, info) => {
+                // If dragged down more than 100px, close the modal
+                if (info.offset.y > 100) {
+                  setShowTimeModal(false)
+                }
+              }}
+              className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border rounded-t-2xl shadow-2xl"
+              style={{ width: "70%", left: "15%", maxHeight: "85vh" }}
+            >
+              {/* Drag Handle */}
+              <div className="flex justify-center pt-3 pb-2">
+                <div className="w-12 h-1.5 bg-muted-foreground/30 rounded-full" />
+              </div>
+              
+              {/* Modal Content */}
+              <div className="px-6 pb-6 overflow-y-auto" style={{ maxHeight: "calc(85vh - 20px)" }}>
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">Schedule Experience</h3>
+                    <p className="text-sm text-muted-foreground mt-1">{selectedExperience.name}</p>
+                  </div>
+                  <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => setShowTimeModal(false)}
+                    className="p-1.5 rounded-lg hover:bg-muted/50 smooth-transition"
+                  >
+                    <X size={18} className="text-muted-foreground" />
+                  </motion.button>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Day Selection */}
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-2 flex items-center gap-2">
+                      <Calendar size={14} />
+                      Select Day
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
+                      {getAvailableDates().map((date, idx) => {
+                        const dateObj = new Date(date)
+                        const isSelected = selectedDay === date
+                        return (
+                          <motion.button
+                            key={date}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => setSelectedDay(date)}
+                            className={`p-3 rounded-lg border-2 smooth-transition text-sm ${
+                              isSelected
+                                ? "border-primary bg-primary/10 text-primary font-semibold"
+                                : "border-border bg-white/5 text-foreground hover:border-primary/50"
+                            }`}
+                          >
+                            <div className="text-xs text-muted-foreground mb-1">
+                              Day {idx + 1}
+                            </div>
+                            <div className="font-medium">
+                              {dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                            </div>
+                          </motion.button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Time Selection */}
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-2 flex items-center gap-2">
+                      <Clock size={14} />
+                      Select Time
+                    </label>
+                    <div className="flex items-center gap-3 mt-2">
+                      {/* Hour */}
+                      <div className="flex-1">
+                        <label className="text-xs text-muted-foreground mb-1 block">Hour</label>
+                        <select
+                          value={selectedHour}
+                          onChange={(e) => setSelectedHour(parseInt(e.target.value))}
+                          className="w-full px-3 py-2 rounded-lg bg-white/5 border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                        >
+                          {Array.from({ length: 18 }, (_, i) => {
+                            const hour = i + 6
+                            return (
+                              <option key={hour} value={hour}>
+                                {formatTime(hour)}
+                              </option>
+                            )
+                          })}
+                        </select>
+                      </div>
+
+                      {/* Minute */}
+                      <div className="flex-1">
+                        <label className="text-xs text-muted-foreground mb-1 block">Minute</label>
+                        <select
+                          value={selectedMinute}
+                          onChange={(e) => setSelectedMinute(parseInt(e.target.value))}
+                          className="w-full px-3 py-2 rounded-lg bg-white/5 border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                        >
+                          {[0, 15, 30, 45].map((min) => (
+                            <option key={min} value={min}>
+                              {min.toString().padStart(2, "0")}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      Duration: {selectedExperience.duration || "2 hours"}
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-3 pt-2">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => setShowTimeModal(false)}
+                      className="flex-1 px-4 py-2.5 rounded-lg border border-border bg-white/5 text-foreground hover:bg-white/10 smooth-transition font-medium text-sm"
+                    >
+                      Cancel
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={handleConfirmAdd}
+                      disabled={!selectedDay}
+                      className="flex-1 px-4 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground smooth-transition font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Add to Timeline
+                    </motion.button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

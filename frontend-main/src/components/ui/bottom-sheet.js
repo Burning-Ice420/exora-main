@@ -1,8 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { motion, useMotionValue, useTransform } from "framer-motion"
-import { X } from "lucide-react"
+import { motion, useMotionValue, useSpring } from "framer-motion"
 
 export default function BottomSheet({ 
   children, 
@@ -15,208 +14,165 @@ export default function BottomSheet({
   // Calculate positions - handle only visible when minimized
   const MIN_HEIGHT = 60 // Only handle visible
   
-  const [height, setHeight] = useState(MIN_HEIGHT)
-  const [contentOpacity, setContentOpacity] = useState(0)
   const [maxHeightValue, setMaxHeightValue] = useState(850)
   const [midHeightValue, setMidHeightValue] = useState(500)
   const y = useMotionValue(0)
-  const constraintsRef = useRef(null)
+  const springY = useSpring(y, { damping: 25, stiffness: 300 })
   const sheetRef = useRef(null)
   
-  // Force transform to stay at 0 - continuously override framer-motion's y transform
-  useEffect(() => {
-    let rafId = null
-    let isActive = true
-    
-    const overrideTransform = () => {
-      if (sheetRef.current && isActive) {
-        // Force transform to center horizontally and stay at bottom (translateY(0))
-        const element = sheetRef.current
-        element.style.transform = 'translateX(-50%) translateY(0px)'
-        element.style.left = '50%'
-        element.style.bottom = '0px'
-        element.style.top = 'auto'
-      }
-      if (isActive) {
-        rafId = requestAnimationFrame(overrideTransform)
-      }
-    }
-    
-    rafId = requestAnimationFrame(overrideTransform)
-    
-    return () => {
-      isActive = false
-      if (rafId) cancelAnimationFrame(rafId)
-    }
-  }, [])
+  // Calculate total height from y position
+  const containerHeight = useMotionValue(maxHeightValue)
   
-  // During drag, calculate height from y, but don't apply y transform
-  // Instead, we'll use height directly and only use y for tracking drag
-
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      setMaxHeightValue(window.innerHeight * 0.85)
-      setMidHeightValue(window.innerHeight * 0.5)
+      const maxH = window.innerHeight * 0.85
+      const midH = window.innerHeight * 0.5
+      setMaxHeightValue(maxH)
+      setMidHeightValue(midH)
+      // Start at mid height
+      y.set(-midH)
+      // Initialize height to match
+      containerHeight.set(midH)
     }
-  }, [])
+  }, [y, containerHeight])
+  
+  useEffect(() => {
+    const unsubscribe = springY.on("change", (latest) => {
+      const calculatedHeight = Math.max(MIN_HEIGHT, -latest)
+      containerHeight.set(calculatedHeight)
+    })
+    // Initialize height
+    const initialHeight = Math.max(MIN_HEIGHT, -springY.get())
+    containerHeight.set(initialHeight)
+    return unsubscribe
+  }, [springY, containerHeight])
 
-  // Snap to nearest position - ensure it never goes below MIN_HEIGHT
+  // Snap to nearest position
   const snapToPosition = (currentY) => {
-    // Never allow dragging below 0 (which equals MIN_HEIGHT)
     if (currentY >= 0) {
-      return 0
-    } else if (currentY > -50) {
-      // Snap back to minimum if dragged down slightly
-      return 0
-    } else if (currentY > -(midHeightValue + MIN_HEIGHT) / 2) {
-      return -midHeightValue
+      return 0 // Closed
+    } else if (currentY > -midHeightValue / 2) {
+      return -midHeightValue // Mid position
     } else {
-      return -maxHeightValue
+      return -maxHeightValue // Full position
     }
   }
 
   const handleDragEnd = (event, info) => {
-    const snapY = snapToPosition(info.offset.y)
-    const finalHeight = Math.max(MIN_HEIGHT, -snapY)
-    
-    // Reset y to 0 and animate to final height
-    y.set(0)
-    
-    // Use a smooth transition to the final height
-    setTimeout(() => {
-      setHeight(finalHeight)
-      // Update content opacity
-      if (finalHeight <= MIN_HEIGHT) {
-        setContentOpacity(0)
+    const snapY = snapToPosition(info.offset.y + y.get())
+    y.set(snapY)
+  }
+
+  // Calculate opacity based on y position
+  const opacity = useMotionValue(1)
+  
+  useEffect(() => {
+    const unsubscribe = springY.on("change", (latest) => {
+      const height = Math.max(MIN_HEIGHT, -latest)
+      if (height <= MIN_HEIGHT) {
+        opacity.set(0)
       } else {
-        // Fade in over first 100px of expansion
         const fadeRange = 100
-        const progress = Math.min(1, (finalHeight - MIN_HEIGHT) / fadeRange)
-        setContentOpacity(progress)
+        const progress = Math.min(1, (height - MIN_HEIGHT) / fadeRange)
+        opacity.set(progress)
       }
-    }, 0)
-  }
+    })
+    return unsubscribe
+  }, [springY, opacity])
 
-  const openToHalf = () => {
-    y.set(-midHeightValue)
-    setHeight(midHeightValue)
-  }
+  // Track if minimized to conditionally allow map interaction
+  const [isMinimized, setIsMinimized] = useState(false)
+  
+  useEffect(() => {
+    const unsubscribe = springY.on("change", (latest) => {
+      setIsMinimized(latest >= -MIN_HEIGHT)
+    })
+    // Initialize
+    setIsMinimized(springY.get() >= -MIN_HEIGHT)
+    return unsubscribe
+  }, [springY])
 
-  const openToFull = () => {
-    y.set(-maxHeightValue)
-    setHeight(maxHeightValue)
-  }
-
-  const close = () => {
-    y.set(0)
-    setHeight(MIN_HEIGHT)
-    if (onClose) onClose()
-  }
-
-
-  if (!isOpen && height === MIN_HEIGHT) return null
+  if (!isOpen) return null
 
   return (
     <>
       {/* Backdrop */}
-      {height > MIN_HEIGHT && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: height > MIN_HEIGHT ? 0.3 : 0 }}
-          exit={{ opacity: 0 }}
-          onClick={close}
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
-          style={{ pointerEvents: height > MIN_HEIGHT ? "auto" : "none" }}
-        />
-      )}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ 
+          opacity: springY.get() < -MIN_HEIGHT ? 0.3 : 0 
+        }}
+        exit={{ opacity: 0 }}
+        onClick={() => y.set(0)}
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+        style={{ 
+          pointerEvents: springY.get() < -MIN_HEIGHT ? "auto" : "none" 
+        }}
+      />
 
       {/* Bottom Sheet */}
       <motion.div
         ref={sheetRef}
         drag="y"
         dragConstraints={{ top: -maxHeightValue, bottom: 0 }}
-        dragElastic={0}
+        dragElastic={0.1}
         dragMomentum={false}
-        dragDirectionLock={true}
-        onDrag={(event, info) => {
-          // Immediately reset y to 0 to prevent transform
-          y.set(0)
-          
-          // Update height in real-time during drag
-          const newHeight = Math.max(MIN_HEIGHT, -info.offset.y)
-          setHeight(newHeight)
-          
-          // Force transform reset
-          if (sheetRef.current) {
-            sheetRef.current.style.transform = 'translateX(-50%) translateY(0px)'
-            sheetRef.current.style.bottom = '0px'
-            sheetRef.current.style.top = 'auto'
-          }
-          
-          // Update opacity - smooth fade in when expanding
-          if (newHeight <= MIN_HEIGHT) {
-            setContentOpacity(0)
-          } else {
-            // Fade in over first 100px of expansion
-            const fadeRange = 100
-            const progress = Math.min(1, (newHeight - MIN_HEIGHT) / fadeRange)
-            setContentOpacity(progress)
-          }
-        }}
-        onDragEnd={(event, info) => {
-          handleDragEnd(event, info)
-        }}
-        className="w-full lg:w-[70%]"
+        onDragEnd={handleDragEnd}
         style={{
-          height: `${height}px`,
-          maxHeight: "85vh",
-          touchAction: "none",
+          y: springY,
+          width: "70%",
+          height: containerHeight,
+          maxHeight: `${maxHeightValue}px`,
+          touchAction: isMinimized ? "auto" : "none",
           left: "50%",
           bottom: "0px",
           top: "auto",
-          transform: "translateX(-50%) translateY(0px)",
+          transform: "translateX(-50%)",
         }}
-        animate={{
-          height: `${height}px`,
-        }}
-        transition={{
-          height: { 
-            type: "spring", 
-            damping: 35, 
-            stiffness: 350, 
-            mass: 0.6,
-            restSpeed: 0.01
-          },
-        }}
-        className="fixed z-50 bg-background border-t border-l border-r border-border rounded-t-3xl shadow-2xl"
+        className="fixed z-50 bg-background border-t border-l border-r border-border rounded-t-3xl shadow-2xl flex flex-col"
         data-bottom-sheet="true"
+        onPointerDown={(e) => {
+          // When minimized, check if click is on handle
+          if (isMinimized) {
+            const handle = e.currentTarget.querySelector('[data-handle]')
+            if (!handle || !handle.contains(e.target)) {
+              // Not on handle, allow event to pass through to map
+              e.stopPropagation()
+              e.preventDefault()
+              // Temporarily disable pointer events on this element
+              const element = e.currentTarget
+              element.style.pointerEvents = "none"
+              // Re-enable after click completes
+              setTimeout(() => {
+                element.style.pointerEvents = "auto"
+              }, 50)
+            }
+          }
+        }}
       >
-        {/* Drag Handle */}
-        <div className={`flex items-center justify-center pt-3 pb-3 cursor-grab active:cursor-grabbing touch-none ${height > MIN_HEIGHT ? 'border-b border-border' : ''}`}>
+        {/* Drag Handle - Always interactive, even when minimized */}
+        <motion.div 
+          data-handle
+          className="flex items-center justify-center pt-3 pb-3 cursor-grab active:cursor-grabbing touch-none border-b border-border"
+          style={{
+            opacity: springY.get() < -MIN_HEIGHT ? 1 : 0.7,
+            pointerEvents: "auto",
+            zIndex: 10,
+          }}
+        >
           <div className="w-12 h-1.5 bg-muted-foreground/30 rounded-full" />
-        </div>
+        </motion.div>
 
         {/* Content - Smoothly animated based on drag position */}
-        <div className="relative h-full" style={{ height: `calc(100% - 40px)` }}>
-          {/* Main content with smooth fade - only visible when expanded */}
-          {height > MIN_HEIGHT && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{
-                opacity: contentOpacity,
-              }}
-              transition={{
-                opacity: { duration: 0.2, ease: [0.4, 0, 0.2, 1] }
-              }}
-              style={{
-                pointerEvents: height > MIN_HEIGHT + 10 ? "auto" : "none",
-              }}
-              className="overflow-y-auto h-full pb-24 scrollbar-hide"
-            >
-              {children}
-            </motion.div>
-          )}
-        </div>
+        <motion.div 
+          className="relative overflow-y-auto scrollbar-hide flex-1"
+          style={{
+            opacity: opacity,
+            pointerEvents: springY.get() < -(MIN_HEIGHT + 10) ? "auto" : "none",
+          }}
+        >
+          {children}
+        </motion.div>
       </motion.div>
     </>
   )

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, useCallback } from "react"
-import { MapPin, Users, Clock, Filter, X, Check, Loader2, UserPlus, MessageCircle, Send } from "lucide-react"
+import { MapPin, Users, Clock, Filter, X, Check, Loader2, UserPlus, MessageCircle, Send, Calendar } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { motion, AnimatePresence } from "framer-motion"
 import api from "@/server/api"
@@ -11,6 +11,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
 import TripRequestsManager from "@/components/ui/trip-requests-manager"
 import FirebaseChat from "@/components/ui/firebase-chat"
+import ItineraryParticipantsView from "@/components/ui/itinerary-participants-view"
 import { useToast } from "@/components/ui/toast"
 
 export default function FinderScreen() {
@@ -28,9 +29,12 @@ export default function FinderScreen() {
   })
   const [showRequestsModal, setShowRequestsModal] = useState(false)
   const [showChat, setShowChat] = useState(false)
+  const [showItineraryParticipants, setShowItineraryParticipants] = useState(false)
   const [currentChatRoom, setCurrentChatRoom] = useState(null)
   const [joinMessage, setJoinMessage] = useState("")
   const [sendingRequest, setSendingRequest] = useState(false)
+  const [userRequestStatus, setUserRequestStatus] = useState({}) // Track request status per trip
+  const [selectedItineraries, setSelectedItineraries] = useState([]) // Track selected itineraries for join request
 
   // Load public trips on component mount
   useEffect(() => {
@@ -144,6 +148,47 @@ export default function FinderScreen() {
     }
   }, [searchParams, trips, selectedTrip, router])
 
+  const isTripOwner = useCallback((trip) => {
+    return trip.createdBy?._id === user?._id
+  }, [user])
+
+  // Check if user has already sent a request when trip is selected
+  useEffect(() => {
+    if (selectedTrip && user && !isTripOwner(selectedTrip)) {
+      const checkRequest = async () => {
+        try {
+          const response = await api.checkUserRequest(selectedTrip._id)
+          if (response.status === 'success') {
+            setUserRequestStatus(prev => ({
+              ...prev,
+              [selectedTrip._id]: response.hasRequest ? response.request : null
+            }))
+          }
+        } catch (err) {
+          console.error('Failed to check request status:', err)
+          // If error, assume no request exists
+          setUserRequestStatus(prev => ({
+            ...prev,
+            [selectedTrip._id]: null
+          }))
+        }
+      }
+      checkRequest()
+    } else if (selectedTrip && isTripOwner(selectedTrip)) {
+      // Clear request status for owned trips
+      setUserRequestStatus(prev => ({
+        ...prev,
+        [selectedTrip._id]: null
+      }))
+    }
+    
+    // Reset selected itineraries when trip changes
+    if (selectedTrip) {
+      setSelectedItineraries([])
+      setJoinMessage("")
+    }
+  }, [selectedTrip, user, isTripOwner])
+
   const handleRequestToJoin = async (experienceId) => {
     try {
       setRequestSent(experienceId)
@@ -163,14 +208,48 @@ export default function FinderScreen() {
   const handleJoinRequest = async (trip) => {
     if (!trip) return
 
+    // Validate at least one itinerary is selected
+    if (selectedItineraries.length === 0) {
+      error('Selection Required', 'Please select at least one itinerary to join')
+      return
+    }
+
     try {
       setSendingRequest(true)
-      const response = await api.sendTripJoinRequest(trip._id, joinMessage)
+      const response = await api.sendTripJoinRequest(trip._id, joinMessage, selectedItineraries)
       
       if (response.status === 'success') {
         success('Join Request Sent', `Your request to join "${trip.name}" has been sent!`)
         setJoinMessage("")
         setRequestSent(trip._id)
+        
+        // Update request status
+        setUserRequestStatus(prev => ({
+          ...prev,
+          [trip._id]: {
+            status: 'pending',
+            message: joinMessage,
+            selectedItineraries: selectedItineraries.map(id => {
+              const item = trip.itinerary?.find(it => {
+                const itemId = it.id || it._id?.toString()
+                return itemId === id
+              })
+              return item ? {
+                itineraryId: id,
+                experienceName: item.experienceName || item.name,
+                day: item.day,
+                startTime: item.startTime,
+                endTime: item.endTime
+              } : null
+            }).filter(Boolean),
+            createdAt: new Date()
+          }
+        }))
+        
+        // Reset selections
+        setSelectedItineraries([])
+        setJoinMessage("")
+        
         setTimeout(() => setRequestSent(null), 3000)
       } else {
         throw new Error(response.message || 'Failed to send join request')
@@ -193,10 +272,6 @@ export default function FinderScreen() {
     setCurrentChatRoom(chatRoom)
     setShowRequestsModal(false)
     setShowChat(true)
-  }
-
-  const isTripOwner = (trip) => {
-    return trip.createdBy?._id === user?._id
   }
 
   // Memoize filtered trips to prevent unnecessary map re-renders
@@ -451,8 +526,95 @@ export default function FinderScreen() {
                 </p>
               </div>
 
-              {/* Itinerary */}
-              {selectedTrip.itinerary && selectedTrip.itinerary.length > 0 && (
+              {/* Itinerary Selection - Only show for non-owners */}
+              {selectedTrip.itinerary && selectedTrip.itinerary.length > 0 && !isTripOwner(selectedTrip) && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-foreground">
+                    Select Itineraries to Join <span className="text-red-500">*</span>
+                  </h3>
+                  <div className="space-y-2 max-h-[250px] overflow-y-auto pr-2">
+                    {selectedTrip.itinerary.map((item, index) => {
+                      const itineraryId = item.id || item._id || index.toString()
+                      const isSelected = selectedItineraries.includes(itineraryId)
+                      
+                      const formatTime = (hour) => {
+                        if (hour === undefined || hour === null) return ''
+                        const h = Math.floor(hour)
+                        const m = Math.round((hour - h) * 60)
+                        const period = h >= 12 ? "PM" : "AM"
+                        const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h
+                        return `${displayHour}:${m.toString().padStart(2, "0")} ${period}`
+                      }
+                      
+                      return (
+                        <motion.div
+                          key={itineraryId}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => {
+                            setSelectedItineraries(prev => {
+                              if (prev.includes(itineraryId)) {
+                                return prev.filter(id => id !== itineraryId)
+                              } else {
+                                return [...prev, itineraryId]
+                              }
+                            })
+                          }}
+                          className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                            isSelected
+                              ? "border-primary bg-primary/10"
+                              : "border-border bg-muted/30 hover:border-primary/50"
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className={`mt-1 w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                              isSelected
+                                ? "border-primary bg-primary"
+                                : "border-border"
+                            }`}>
+                              {isSelected && <Check size={14} className="text-white" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-medium text-foreground text-sm">
+                                {item.experienceName || item.name || `Activity ${index + 1}`}
+                              </h4>
+                              <div className="flex flex-wrap gap-2 mt-2 text-xs text-muted-foreground">
+                                {item.day && (
+                                  <div className="flex items-center gap-1">
+                                    <Calendar size={12} />
+                                    <span>{new Date(item.day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                                  </div>
+                                )}
+                                {item.startTime !== undefined && (
+                                  <div className="flex items-center gap-1">
+                                    <Clock size={12} />
+                                    <span>{formatTime(item.startTime)}</span>
+                                    {item.endTime && <span> - {formatTime(item.endTime)}</span>}
+                                  </div>
+                                )}
+                                {item.timeSlot && (
+                                  <span className="text-primary capitalize">{item.timeSlot}</span>
+                                )}
+                                {item.price > 0 && (
+                                  <span className="text-primary font-medium">₹{item.price}</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )
+                    })}
+                  </div>
+                  {selectedItineraries.length > 0 && (
+                    <p className="text-xs text-primary mt-2">
+                      {selectedItineraries.length} itinerary{selectedItineraries.length !== 1 ? 'ies' : ''} selected
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Itinerary - Show as read-only for trip owners */}
+              {selectedTrip.itinerary && selectedTrip.itinerary.length > 0 && isTripOwner(selectedTrip) && (
                 <div className="space-y-2">
                   <h3 className="text-sm font-semibold text-foreground">Itinerary ({selectedTrip.itinerary.length} activities)</h3>
                   <div className="space-y-2">
@@ -498,6 +660,17 @@ export default function FinderScreen() {
                   <Button
                     onClick={(e) => {
                       e.stopPropagation()
+                      setShowItineraryParticipants(true)
+                    }}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    <Users size={16} className="mr-2" />
+                    View Itinerary Participants
+                  </Button>
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation()
                       handleJoinRequest(selectedTrip)
                     }}
                     variant="outline"
@@ -507,14 +680,55 @@ export default function FinderScreen() {
                     Open Trip Chat
                   </Button>
                 </div>
-              ) : requestSent === (selectedTrip._id || selectedTrip.id) ? (
+              ) : (requestSent === (selectedTrip._id || selectedTrip.id)) || 
+                   (userRequestStatus[selectedTrip._id] && userRequestStatus[selectedTrip._id].status === 'pending') ? (
                 <motion.div
                   initial={{ scale: 0.9 }}
                   animate={{ scale: 1 }}
-                  className="w-full bg-primary/20 border border-primary rounded-lg py-2 flex items-center justify-center gap-2 text-primary font-semibold text-sm"
+                  className="w-full bg-primary/20 border border-primary rounded-lg py-3 px-4 space-y-2"
+                >
+                  <div className="flex items-center justify-center gap-2 text-primary font-semibold text-sm">
+                    <Check size={16} />
+                    Request Sent!
+                  </div>
+                  {userRequestStatus[selectedTrip._id]?.selectedItineraries && 
+                   userRequestStatus[selectedTrip._id].selectedItineraries.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-primary/20">
+                      <p className="text-xs font-medium text-foreground mb-1">
+                        Selected Itineraries ({userRequestStatus[selectedTrip._id].selectedItineraries.length}):
+                      </p>
+                      <div className="space-y-1">
+                        {userRequestStatus[selectedTrip._id].selectedItineraries.map((itinerary, idx) => (
+                          <div key={idx} className="text-xs text-muted-foreground">
+                            • {itinerary.experienceName || `Itinerary ${idx + 1}`}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {userRequestStatus[selectedTrip._id]?.status === 'pending' && (
+                    <p className="text-xs text-center text-muted-foreground mt-2">
+                      Waiting for trip owner's response...
+                    </p>
+                  )}
+                </motion.div>
+              ) : userRequestStatus[selectedTrip._id]?.status === 'accepted' ? (
+                <motion.div
+                  initial={{ scale: 0.9 }}
+                  animate={{ scale: 1 }}
+                  className="w-full bg-green-500/20 border border-green-500 rounded-lg py-3 px-4 flex items-center justify-center gap-2 text-green-600 font-semibold text-sm"
                 >
                   <Check size={16} />
-                  Request Sent!
+                  Request Accepted! You're part of this trip.
+                </motion.div>
+              ) : userRequestStatus[selectedTrip._id]?.status === 'rejected' ? (
+                <motion.div
+                  initial={{ scale: 0.9 }}
+                  animate={{ scale: 1 }}
+                  className="w-full bg-red-500/20 border border-red-500 rounded-lg py-3 px-4 flex items-center justify-center gap-2 text-red-600 font-semibold text-sm"
+                >
+                  <X size={16} />
+                  Request Rejected
                 </motion.div>
               ) : (
                 <div className="space-y-3">
@@ -541,8 +755,8 @@ export default function FinderScreen() {
                       e.stopPropagation()
                       handleJoinRequest(selectedTrip)
                     }}
-                    disabled={sendingRequest}
-                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-2 rounded-lg smooth-transition silver-glow text-sm"
+                    disabled={sendingRequest || selectedItineraries.length === 0}
+                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-2 rounded-lg smooth-transition silver-glow text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {sendingRequest ? (
                       <>
@@ -556,6 +770,11 @@ export default function FinderScreen() {
                       </>
                     )}
                   </Button>
+                  {selectedItineraries.length === 0 && (
+                    <p className="text-xs text-red-500 text-center">
+                      Please select at least one itinerary
+                    </p>
+                  )}
                 </div>
               )}
             </motion.div>
@@ -577,6 +796,13 @@ export default function FinderScreen() {
         onClose={() => setShowChat(false)}
         chatRoom={currentChatRoom}
         currentUser={user}
+      />
+
+      {/* Itinerary Participants View */}
+      <ItineraryParticipantsView
+        tripId={selectedTrip?._id}
+        isOpen={showItineraryParticipants}
+        onClose={() => setShowItineraryParticipants(false)}
       />
     </div>
   )

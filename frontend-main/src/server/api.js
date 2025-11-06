@@ -336,11 +336,19 @@ class ApiClient {
   }
 
   // Trip Request API methods
-  async sendTripJoinRequest(tripId, message = '') {
+  async sendTripJoinRequest(tripId, message = '', selectedItineraries = []) {
     return await this.request(`/api/trip-requests/${tripId}/request`, {
       method: 'POST',
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, selectedItineraries }),
     })
+  }
+
+  async getItineraryParticipants(tripId) {
+    return await this.request(`/api/trip-requests/${tripId}/itinerary-participants`)
+  }
+
+  async checkUserRequest(tripId) {
+    return await this.request(`/api/trip-requests/${tripId}/check-request`)
   }
 
   async getTripJoinRequests(tripId) {

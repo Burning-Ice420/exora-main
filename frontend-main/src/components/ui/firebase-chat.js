@@ -150,10 +150,15 @@ export default function FirebaseChat({ isOpen, onClose, chatRoom, currentUser })
 
   // Mark messages as read when chat is opened
   useEffect(() => {
-    if (isOpen && chatRoom) {
-      markAsRead(chatRoom.firebaseRoomId)
+    if (isOpen && chatRoom?.firebaseRoomId) {
+      // Use a small delay to prevent rapid re-renders
+      const timeoutId = setTimeout(() => {
+        markAsRead(chatRoom.firebaseRoomId)
+      }, 100)
+      
+      return () => clearTimeout(timeoutId)
     }
-  }, [isOpen, chatRoom, markAsRead])
+  }, [isOpen, chatRoom?.firebaseRoomId, markAsRead])
 
 
   if (!isOpen || !chatRoom) {
