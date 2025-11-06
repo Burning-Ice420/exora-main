@@ -58,18 +58,18 @@ export default function TripDetailsModal({ onCreateTrip, isOpen, onClose }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-2 lg:p-4"
     >
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
         transition={{ duration: 0.3 }}
-        className="bg-background border border-border rounded-2xl p-4 max-w-sm w-full space-y-4"
+        className="bg-background border border-border rounded-xl lg:rounded-2xl p-3 lg:p-4 max-w-sm w-full space-y-3 lg:space-y-4 max-h-[95vh] lg:max-h-[90vh] overflow-y-auto"
       >
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="text-xl font-bold text-foreground">Let's plan your trip!</h2>
+            <h2 className="text-lg lg:text-xl font-bold text-foreground">Let's plan your trip!</h2>
             <p className="text-xs text-muted-foreground mt-1">Fill in the details to get started</p>
           </div>
           {onClose && (
@@ -190,7 +190,7 @@ export default function TripDetailsModal({ onCreateTrip, isOpen, onClose }) {
                 Private
               </button>
             </div>
-            <p className="text-xs text-muted-foreground">Public trips show your experiences on the Exora Map</p>
+            <p className="text-xs text-muted-foreground">Public trips show your experiences on the exora Map</p>
           </div>
 
           {/* Submit */}

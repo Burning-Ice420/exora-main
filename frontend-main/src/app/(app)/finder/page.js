@@ -1,7 +1,16 @@
 "use client"
 
+import { Suspense } from "react"
 import FinderScreen from "@/components/screens/finder-screen"
 
-export default function FinderPage() {
+function FinderContent() {
   return <FinderScreen />
+}
+
+export default function FinderPage() {
+  return (
+    <Suspense fallback={<div className="w-full h-full flex items-center justify-center">Loading...</div>}>
+      <FinderContent />
+    </Suspense>
+  )
 }

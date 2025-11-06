@@ -46,7 +46,7 @@ export default function SignupWelcome({ onSignupClick }) {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="space-y-3"
         >
-          <h1 className="text-3xl font-bold text-foreground text-balance">Exora</h1>
+          <h1 className="text-3xl font-bold text-foreground text-balance">exora</h1>
           <p className="text-base text-muted-foreground">Discover, Connect, and Experience Travel Together.</p>
         </motion.div>
 

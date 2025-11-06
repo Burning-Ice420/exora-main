@@ -17,7 +17,7 @@ export default function AppLayout({ children }) {
               <Navigation />
               
               {/* Content Area */}
-              <div className="flex-1 overflow-x-hidden overflow-y-auto">
+              <div className="flex-1 overflow-x-hidden overflow-y-auto pb-20 lg:pb-0">
                 {children}
               </div>
             </div>

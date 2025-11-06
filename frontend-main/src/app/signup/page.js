@@ -69,9 +69,9 @@ export default function SignupPage() {
   const steps = [
     { title: 'Basic Info', subtitle: 'Let\'s start with the basics' },
     { title: 'Profile', subtitle: 'Tell us about yourself' },
+    { title: 'Photos', subtitle: 'Add some photos and tell us about yourself' },
     { title: 'Travel Style', subtitle: 'What kind of traveler are you?' },
     { title: 'Preferences', subtitle: 'What do you love to do?' },
-    { title: 'Photos', subtitle: 'Add some photos of yourself' },
     { title: 'Interests', subtitle: 'What makes you unique?' },
   ]
 
@@ -112,6 +112,14 @@ export default function SignupPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const validatePassword = (password) => {
+    const hasUpperCase = /[A-Z]/.test(password)
+    const hasLowerCase = /[a-z]/.test(password)
+    const hasNumber = /[0-9]/.test(password)
+    const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+    return hasUpperCase && hasLowerCase && hasNumber && hasSpecialChar
   }
 
   const calculateAge = (dateOfBirth) => {
@@ -276,10 +284,36 @@ export default function SignupPage() {
                     value={formData.password}
                     onChange={handleChange}
                     placeholder="Create a password"
-                    className="pl-10"
+                    className={`pl-10 ${
+                      formData.password && !validatePassword(formData.password)
+                        ? "border-destructive focus:ring-destructive"
+                        : ""
+                    }`}
                     required
                   />
                 </div>
+                {formData.password && (
+                  <div className="space-y-1 mt-2">
+                    <div className="text-xs space-y-1">
+                      <div className={`flex items-center gap-2 ${/[A-Z]/.test(formData.password) ? "text-green-500" : "text-muted-foreground"}`}>
+                        <span>{/[A-Z]/.test(formData.password) ? "✓" : "○"}</span>
+                        <span>At least one uppercase letter</span>
+                      </div>
+                      <div className={`flex items-center gap-2 ${/[a-z]/.test(formData.password) ? "text-green-500" : "text-muted-foreground"}`}>
+                        <span>{/[a-z]/.test(formData.password) ? "✓" : "○"}</span>
+                        <span>At least one lowercase letter</span>
+                      </div>
+                      <div className={`flex items-center gap-2 ${/[0-9]/.test(formData.password) ? "text-green-500" : "text-muted-foreground"}`}>
+                        <span>{/[0-9]/.test(formData.password) ? "✓" : "○"}</span>
+                        <span>At least one number</span>
+                      </div>
+                      <div className={`flex items-center gap-2 ${/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(formData.password) ? "text-green-500" : "text-muted-foreground"}`}>
+                        <span>{/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(formData.password) ? "✓" : "○"}</span>
+                        <span>At least one special character</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -332,23 +366,11 @@ export default function SignupPage() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Bio</label>
-                <textarea
-                  name="bio"
-                  value={formData.bio}
-                  onChange={handleChange}
-                  placeholder="Tell us about yourself..."
-                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                  rows={4}
-                  required
-                />
-              </div>
             </div>
           </div>
         )
 
-      case 2: // Travel Style
+      case 3: // Travel Style (moved from case 2)
         return (
           <div className="space-y-6">
             <div className="space-y-4">
@@ -376,7 +398,7 @@ export default function SignupPage() {
           </div>
         )
 
-      case 3: // Travel Preferences
+      case 4: // Travel Preferences (moved from case 3)
         return (
           <div className="space-y-6">
             <div className="space-y-4">
@@ -403,7 +425,7 @@ export default function SignupPage() {
           </div>
         )
 
-      case 4: // Photos
+      case 2: // Photos (moved up, now includes bio)
         return (
           <div className="space-y-6">
             <div className="space-y-4">
@@ -459,6 +481,20 @@ export default function SignupPage() {
                   </div>
                 )}
               </div>
+
+              {/* Bio */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Bio</label>
+                <textarea
+                  name="bio"
+                  value={formData.bio}
+                  onChange={handleChange}
+                  placeholder="Tell us about yourself..."
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  rows={4}
+                  required
+                />
+              </div>
             </div>
           </div>
         )
@@ -496,12 +532,12 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-3 lg:p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="w-full max-w-2xl space-y-8"
+        className="w-full max-w-2xl space-y-4 lg:space-y-8"
       >
         {/* Header */}
         <div className="text-center space-y-4">
@@ -509,13 +545,13 @@ export default function SignupPage() {
             initial={{ scale: 0.9 }}
             animate={{ scale: 1 }}
             transition={{ duration: 0.3, delay: 0.2 }}
-            className="w-20 h-20 bg-primary/20 rounded-2xl flex items-center justify-center mx-auto"
+            className="w-16 h-16 lg:w-20 lg:h-20 bg-primary/20 rounded-xl lg:rounded-2xl flex items-center justify-center mx-auto"
           >
-            <div className="text-3xl">✈️</div>
+            <div className="text-xl lg:text-2xl font-bold text-foreground">exora</div>
           </motion.div>
           <div>
-            <h1 className="text-3xl font-bold text-foreground">{steps[currentStep].title}</h1>
-            <p className="text-muted-foreground mt-2">{steps[currentStep].subtitle}</p>
+            <h1 className="text-2xl lg:text-3xl font-bold text-foreground">{steps[currentStep].title}</h1>
+            <p className="text-sm lg:text-base text-muted-foreground mt-1 lg:mt-2">{steps[currentStep].subtitle}</p>
           </div>
         </div>
 
@@ -552,7 +588,7 @@ export default function SignupPage() {
         )}
 
         {/* Navigation */}
-        <div className="flex justify-between">
+        <div className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-0">
           <Button
             onClick={handlePrevious}
             disabled={currentStep === 0}

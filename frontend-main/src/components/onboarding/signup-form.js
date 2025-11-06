@@ -11,12 +11,33 @@ export default function SignupForm({ onSubmit, onBack }) {
     email: "",
     password: "",
   })
+  const [passwordErrors, setPasswordErrors] = useState({
+    hasUpperCase: false,
+    hasLowerCase: false,
+    hasNumber: false,
+    hasSpecialChar: false,
+  })
 
-  const isValid = formData.fullName && formData.email && formData.password
+  const validatePassword = (password) => {
+    const errors = {
+      hasUpperCase: /[A-Z]/.test(password),
+      hasLowerCase: /[a-z]/.test(password),
+      hasNumber: /[0-9]/.test(password),
+      hasSpecialChar: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password),
+    }
+    setPasswordErrors(errors)
+    return errors.hasUpperCase && errors.hasLowerCase && errors.hasNumber && errors.hasSpecialChar
+  }
+
+  const isPasswordValid = formData.password && validatePassword(formData.password)
+  const isValid = formData.fullName && formData.email && isPasswordValid
 
   const handleChange = (e) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
+    if (name === "password") {
+      validatePassword(value)
+    }
   }
 
   const handleSubmit = (e) => {
@@ -27,13 +48,13 @@ export default function SignupForm({ onSubmit, onBack }) {
   }
 
   return (
-    <div className="w-full h-full bg-background flex flex-col overflow-y-auto pb-24">
+    <div className="w-full h-full bg-background flex flex-col overflow-y-auto pb-20 lg:pb-24">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur-sm px-4 py-4 flex items-center gap-3"
+        className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur-sm px-3 lg:px-4 py-3 lg:py-4 flex items-center gap-2 lg:gap-3"
       >
         <button
           onClick={onBack}
@@ -45,7 +66,7 @@ export default function SignupForm({ onSubmit, onBack }) {
       </motion.div>
 
       {/* Form */}
-      <form onSubmit={handleSubmit} className="flex-1 px-4 py-6 space-y-4">
+      <form onSubmit={handleSubmit} className="flex-1 px-3 lg:px-4 py-4 lg:py-6 space-y-3 lg:space-y-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -59,7 +80,7 @@ export default function SignupForm({ onSubmit, onBack }) {
             value={formData.fullName}
             onChange={handleChange}
             placeholder="Enter your full name"
-            className="w-full px-4 py-3 rounded-lg bg-white/5 border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary smooth-transition"
+            className="w-full px-3 lg:px-4 py-2.5 lg:py-3 rounded-lg bg-white/5 border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary smooth-transition text-sm lg:text-base"
           />
         </motion.div>
 
@@ -76,7 +97,7 @@ export default function SignupForm({ onSubmit, onBack }) {
             value={formData.email}
             onChange={handleChange}
             placeholder="Enter your email"
-            className="w-full px-4 py-3 rounded-lg bg-white/5 border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary smooth-transition"
+            className="w-full px-3 lg:px-4 py-2.5 lg:py-3 rounded-lg bg-white/5 border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary smooth-transition text-sm lg:text-base"
           />
         </motion.div>
 
@@ -93,8 +114,34 @@ export default function SignupForm({ onSubmit, onBack }) {
             value={formData.password}
             onChange={handleChange}
             placeholder="Create a password"
-            className="w-full px-4 py-3 rounded-lg bg-white/5 border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary smooth-transition"
+            className={`w-full px-3 lg:px-4 py-2.5 lg:py-3 rounded-lg bg-white/5 border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 smooth-transition text-sm lg:text-base ${
+              formData.password && !isPasswordValid
+                ? "border-destructive focus:ring-destructive"
+                : "border-border focus:ring-primary"
+            }`}
           />
+          {formData.password && (
+            <div className="space-y-1 mt-2">
+              <div className="text-xs space-y-0.5 lg:space-y-1">
+                <div className={`flex items-center gap-2 ${passwordErrors.hasUpperCase ? "text-green-500" : "text-muted-foreground"}`}>
+                  <span>{passwordErrors.hasUpperCase ? "✓" : "○"}</span>
+                  <span>At least one uppercase letter</span>
+                </div>
+                <div className={`flex items-center gap-2 ${passwordErrors.hasLowerCase ? "text-green-500" : "text-muted-foreground"}`}>
+                  <span>{passwordErrors.hasLowerCase ? "✓" : "○"}</span>
+                  <span>At least one lowercase letter</span>
+                </div>
+                <div className={`flex items-center gap-2 ${passwordErrors.hasNumber ? "text-green-500" : "text-muted-foreground"}`}>
+                  <span>{passwordErrors.hasNumber ? "✓" : "○"}</span>
+                  <span>At least one number</span>
+                </div>
+                <div className={`flex items-center gap-2 ${passwordErrors.hasSpecialChar ? "text-green-500" : "text-muted-foreground"}`}>
+                  <span>{passwordErrors.hasSpecialChar ? "✓" : "○"}</span>
+                  <span>At least one special character</span>
+                </div>
+              </div>
+            </div>
+          )}
         </motion.div>
 
         <motion.div

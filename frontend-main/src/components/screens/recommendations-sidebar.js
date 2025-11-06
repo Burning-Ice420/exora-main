@@ -1,55 +1,104 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
-import { MapPin, Users, Star, Plus, Calendar, Clock } from "lucide-react"
+import { MapPin, Users, Star, Calendar, Clock } from "lucide-react"
+import api from "@/server/api"
 
 export default function RecommendationsSidebar() {
   const router = useRouter()
-  
+  const [trendingExperiences, setTrendingExperiences] = useState([])
+  const [upcomingEvents, setUpcomingEvents] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  const trendingExperiences = [
-    { name: "Sunset Beach Bonfire", location: "Goa", price: "Free", participants: 12 },
-    { name: "Street Food Tour", location: "Delhi", price: "₹500", participants: 8 },
-    { name: "Photography Walk", location: "Mumbai", price: "₹300", participants: 15 },
-    { name: "Yoga by the Lake", location: "Bangalore", price: "₹200", participants: 20 },
-  ]
+  useEffect(() => {
+    const loadTrips = async () => {
+      try {
+        setLoading(true)
+        const response = await api.getPublicTrips()
+        const tripsData = response?.trips || response || []
+        const trips = Array.isArray(tripsData) ? tripsData : []
 
-  const upcomingEvents = [
-    { 
-      name: "Mumbai Food Festival", 
-      location: "Mumbai", 
-      date: "Dec 15, 2024", 
-      time: "6:00 PM", 
-      participants: 45,
-      price: "₹300"
-    },
-    { 
-      name: "Goa Beach Cleanup", 
-      location: "Goa", 
-      date: "Dec 20, 2024", 
-      time: "8:00 AM", 
-      participants: 28,
-      price: "Free"
-    },
-    { 
-      name: "Delhi Heritage Walk", 
-      location: "Delhi", 
-      date: "Dec 22, 2024", 
-      time: "10:00 AM", 
-      participants: 15,
-      price: "₹150"
-    },
-    { 
-      name: "Bangalore Tech Meetup", 
-      location: "Bangalore", 
-      date: "Dec 25, 2024", 
-      time: "2:00 PM", 
-      participants: 60,
-      price: "₹200"
-    },
-  ]
+        // Get 4 popular experiences (take first 4)
+        const popular = trips.slice(0, 4).map(trip => ({
+          _id: trip._id,
+          name: trip.name,
+          location: trip.location,
+          price: trip.budget === 0 ? "Free" : `₹${trip.budget}`,
+          participants: trip.membersInvolved?.length || 0,
+          trip: trip
+        }))
+
+        // Get 4 upcoming events (filter by startDate, exclude already used popular ones, take next 4)
+        const now = new Date()
+        const popularIds = new Set(popular.map(p => p._id))
+        
+        // First try to find trips with future startDate
+        let upcoming = trips
+          .filter(trip => {
+            if (!trip.startDate || popularIds.has(trip._id)) return false
+            try {
+              const startDate = new Date(trip.startDate)
+              return !isNaN(startDate.getTime()) && startDate > now
+            } catch {
+              return false
+            }
+          })
+          .sort((a, b) => new Date(a.startDate) - new Date(b.startDate))
+          .slice(0, 4)
+        
+        // If we don't have 4 upcoming events, fallback to any trips not in popular section
+        if (upcoming.length < 4) {
+          const remainingTrips = trips
+            .filter(trip => !popularIds.has(trip._id))
+            .slice(0, 4 - upcoming.length)
+          upcoming = [...upcoming, ...remainingTrips]
+        }
+        
+        // Map to the format needed for display
+        const upcomingEvents = upcoming.slice(0, 4).map(trip => ({
+          _id: trip._id,
+          name: trip.name,
+          location: trip.location,
+          date: trip.startDate 
+            ? new Date(trip.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+            : "TBD",
+          time: trip.startTime || "TBD",
+          participants: trip.membersInvolved?.length || 0,
+          price: trip.budget === 0 ? "Free" : `₹${trip.budget}`,
+          trip: trip
+        }))
+
+        setTrendingExperiences(popular)
+        setUpcomingEvents(upcomingEvents)
+      } catch (error) {
+        console.error('Failed to load trips:', error)
+        // Set empty arrays on error
+        setTrendingExperiences([])
+        setUpcomingEvents([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadTrips()
+  }, [])
+
+  const handleExperienceClick = (experience) => {
+    if (experience.trip) {
+      // Navigate to finder with trip ID in query params
+      router.push(`/finder?tripId=${experience.trip._id}`)
+    }
+  }
+
+  const handleEventClick = (event) => {
+    if (event.trip) {
+      // Navigate to finder with trip ID in query params
+      router.push(`/finder?tripId=${event.trip._id}`)
+    }
+  }
 
   return (
     <div className="w-80 bg-background border-r border-border h-full overflow-y-auto scrollbar-hide">
@@ -67,14 +116,20 @@ export default function RecommendationsSidebar() {
           <h3 className="text-sm font-semibold text-foreground">Popular Experiences</h3>
         </div>
         <div className="space-y-3">
-          {trendingExperiences.map((experience, idx) => (
-            <motion.div
-              key={experience.name}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3, delay: idx * 0.1 }}
-              className="glass-effect rounded-lg p-3 hover:bg-white/10 smooth-transition cursor-pointer"
-            >
+          {loading ? (
+            <div className="text-center py-4 text-muted-foreground text-sm">Loading...</div>
+          ) : trendingExperiences.length === 0 ? (
+            <div className="text-center py-4 text-muted-foreground text-sm">No experiences available</div>
+          ) : (
+            trendingExperiences.map((experience, idx) => (
+              <motion.div
+                key={experience._id || experience.name}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3, delay: idx * 0.1 }}
+                onClick={() => handleExperienceClick(experience)}
+                className="glass-effect rounded-lg p-3 hover:bg-primary/5 hover:shadow-md smooth-transition cursor-pointer"
+              >
               <div className="flex items-start justify-between mb-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">{experience.name}</p>
@@ -90,12 +145,21 @@ export default function RecommendationsSidebar() {
                   <Users size={12} className="text-muted-foreground" />
                   <p className="text-xs text-muted-foreground">{experience.participants} going</p>
                 </div>
-                <Button size="sm" variant="ghost" className="text-xs px-2 py-1 h-auto">
-                  Join
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="text-xs px-2 py-1 h-auto"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleExperienceClick(experience)
+                  }}
+                >
+                  View
                 </Button>
               </div>
             </motion.div>
-          ))}
+            ))
+          )}
         </div>
       </div>
 
@@ -106,14 +170,20 @@ export default function RecommendationsSidebar() {
           <h3 className="text-sm font-semibold text-foreground">Upcoming Events</h3>
         </div>
         <div className="space-y-3">
-          {upcomingEvents.map((event, idx) => (
-            <motion.div
-              key={event.name}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3, delay: idx * 0.1 }}
-              className="glass-effect rounded-lg p-3 hover:bg-white/10 smooth-transition cursor-pointer"
-            >
+          {loading ? (
+            <div className="text-center py-4 text-muted-foreground text-sm">Loading...</div>
+          ) : upcomingEvents.length === 0 ? (
+            <div className="text-center py-4 text-muted-foreground text-sm">No upcoming events</div>
+          ) : (
+            upcomingEvents.map((event, idx) => (
+              <motion.div
+                key={event._id || event.name}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3, delay: idx * 0.1 }}
+                onClick={() => handleEventClick(event)}
+                className="glass-effect rounded-lg p-3 hover:bg-primary/5 hover:shadow-md smooth-transition cursor-pointer"
+              >
               <div className="flex items-start justify-between mb-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">{event.name}</p>
@@ -139,34 +209,21 @@ export default function RecommendationsSidebar() {
                   <Users size={12} className="text-muted-foreground" />
                   <p className="text-xs text-muted-foreground">{event.participants} going</p>
                 </div>
-                <Button size="sm" variant="ghost" className="text-xs px-2 py-1 h-auto">
-                  Join
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="text-xs px-2 py-1 h-auto"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleEventClick(event)
+                  }}
+                >
+                  View
                 </Button>
               </div>
             </motion.div>
-          ))}
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Plus size={16} className="text-primary" />
-          <h3 className="text-sm font-semibold text-foreground">Quick Actions</h3>
-        </div>
-        <div className="space-y-2">
-          <Button variant="outline" className="w-full justify-start text-sm py-2">
-            <MapPin size={14} className="mr-2" />
-            Find Nearby Events
-          </Button>
-          <Button variant="outline" className="w-full justify-start text-sm py-2">
-            <Users size={14} className="mr-2" />
-            Create Group Trip
-          </Button>
-          <Button variant="outline" className="w-full justify-start text-sm py-2">
-            <Star size={14} className="mr-2" />
-            Share Experience
-          </Button>
+            ))
+          )}
         </div>
       </div>
     </div>

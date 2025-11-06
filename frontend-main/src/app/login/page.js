@@ -63,7 +63,7 @@ export default function LoginPage() {
             transition={{ duration: 0.3, delay: 0.2 }}
             className="w-20 h-20 bg-primary/20 rounded-2xl flex items-center justify-center mx-auto"
           >
-            <div className="text-3xl">✈️</div>
+            <div className="text-2xl font-bold text-foreground">exora</div>
           </motion.div>
           <div>
             <h1 className="text-3xl font-bold text-foreground">Welcome back</h1>

@@ -97,15 +97,15 @@ export default function TripRequestsManager({ tripId, isOpen, onClose, onAccept 
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="relative bg-background border border-border rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-hidden"
+          className="relative bg-background border border-border rounded-xl shadow-xl w-full max-w-2xl mx-2 lg:mx-4 max-h-[85vh] lg:max-h-[80vh] overflow-hidden"
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-border">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between p-3 lg:p-6 border-b border-border">
+            <div className="flex items-center gap-2 lg:gap-3">
               <Users size={24} className="text-primary" />
               <div>
-                <h2 className="text-xl font-semibold text-foreground">Join Requests</h2>
-                <p className="text-sm text-muted-foreground">Manage requests to join your trip</p>
+                <h2 className="text-lg lg:text-xl font-semibold text-foreground">Join Requests</h2>
+                <p className="text-xs lg:text-sm text-muted-foreground">Manage requests to join your trip</p>
               </div>
             </div>
             <Button
@@ -119,7 +119,7 @@ export default function TripRequestsManager({ tripId, isOpen, onClose, onAccept 
           </div>
 
           {/* Content */}
-          <div className="p-6 overflow-y-auto max-h-[60vh]">
+          <div className="p-3 lg:p-6 overflow-y-auto max-h-[65vh] lg:max-h-[60vh]">
             {loading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 size={24} className="animate-spin text-primary" />

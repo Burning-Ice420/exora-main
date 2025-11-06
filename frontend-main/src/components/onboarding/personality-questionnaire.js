@@ -67,6 +67,8 @@ export default function PersonalityQuestionnaire() {
   const handleNext = () => {
     if (currentStep < 5) {
       setCurrentStep(currentStep + 1)
+    } else {
+      handleFinish()
     }
   }
 
@@ -91,26 +93,26 @@ export default function PersonalityQuestionnaire() {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.3 }}
-            className="space-y-6"
+            className="space-y-4 lg:space-y-6"
           >
             <div>
-              <h2 className="text-xl font-bold text-foreground mb-2">What kind of traveler are you?</h2>
-              <p className="text-sm text-muted-foreground">Select up to 3 that resonate with you</p>
+              <h2 className="text-lg lg:text-xl font-bold text-foreground mb-2">What kind of traveler are you?</h2>
+              <p className="text-xs lg:text-sm text-muted-foreground">Select up to 3 that resonate with you</p>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2 lg:gap-3">
               {travelPersonalities.map((personality) => (
                 <motion.button
                   key={personality.id}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => toggleSelection("travelPersonality", personality.id)}
-                  className={`p-3 rounded-lg border-2 smooth-transition text-center space-y-1 ${
+                  className={`p-2.5 lg:p-3 rounded-lg border-2 smooth-transition text-center space-y-1 ${
                     data.travelPersonality.includes(personality.id)
                       ? "border-primary bg-primary/10"
                       : "border-border bg-white/5 hover:border-border/50"
                   }`}
                 >
-                  <div className="text-2xl">{personality.emoji}</div>
+                  <div className="text-xl lg:text-2xl">{personality.emoji}</div>
                   <p className="text-xs font-medium text-foreground">{personality.label}</p>
                 </motion.button>
               ))}
@@ -126,26 +128,26 @@ export default function PersonalityQuestionnaire() {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.3 }}
-            className="space-y-6"
+            className="space-y-4 lg:space-y-6"
           >
             <div>
-              <h2 className="text-xl font-bold text-foreground mb-2">When you travel, what's your vibe?</h2>
-              <p className="text-sm text-muted-foreground">Select all that apply</p>
+              <h2 className="text-lg lg:text-xl font-bold text-foreground mb-2">When you travel, what's your vibe?</h2>
+              <p className="text-xs lg:text-sm text-muted-foreground">Select all that apply</p>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2 lg:gap-3">
               {travelVibes.map((vibe) => (
                 <motion.button
                   key={vibe.id}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => toggleSelection("travelVibe", vibe.id)}
-                  className={`p-3 rounded-lg border-2 smooth-transition text-center space-y-1 ${
+                  className={`p-2.5 lg:p-3 rounded-lg border-2 smooth-transition text-center space-y-1 ${
                     data.travelVibe.includes(vibe.id)
                       ? "border-primary bg-primary/10"
                       : "border-border bg-white/5 hover:border-border/50"
                   }`}
                 >
-                  <div className="text-2xl">{vibe.emoji}</div>
+                  <div className="text-xl lg:text-2xl">{vibe.emoji}</div>
                   <p className="text-xs font-medium text-foreground">{vibe.label}</p>
                 </motion.button>
               ))}
@@ -161,27 +163,62 @@ export default function PersonalityQuestionnaire() {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.3 }}
-            className="space-y-6"
+            className="space-y-4 lg:space-y-6"
           >
             <div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">Your dream getaway looks like…</h2>
-              <p className="text-muted-foreground">Select all that appeal to you</p>
+              <h2 className="text-lg lg:text-2xl font-bold text-foreground mb-2">Your dream getaway looks like…</h2>
+              <p className="text-sm lg:text-base text-muted-foreground">Select all that appeal to you</p>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2 lg:gap-3">
               {destinations.map((dest) => (
                 <motion.button
                   key={dest.id}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => toggleSelection("destination", dest.id)}
-                  className={`p-4 rounded-xl border-2 smooth-transition text-center space-y-2 ${
+                  className={`p-3 lg:p-4 rounded-lg lg:rounded-xl border-2 smooth-transition text-center space-y-1 lg:space-y-2 ${
                     data.destination.includes(dest.id)
                       ? "border-primary bg-primary/10"
                       : "border-border bg-white/5 hover:border-border/50"
                   }`}
                 >
-                  <div className="text-3xl">{dest.emoji}</div>
-                  <p className="text-sm font-medium text-foreground">{dest.label}</p>
+                  <div className="text-2xl lg:text-3xl">{dest.emoji}</div>
+                  <p className="text-xs lg:text-sm font-medium text-foreground">{dest.label}</p>
+                </motion.button>
+              ))}
+            </div>
+          </motion.div>
+        )
+
+      case 4:
+        return (
+          <motion.div
+            key="step4"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-4 lg:space-y-6"
+          >
+            <div>
+              <h2 className="text-lg lg:text-2xl font-bold text-foreground mb-2">Who would you love to meet while traveling?</h2>
+              <p className="text-sm lg:text-base text-muted-foreground">Select all that interest you</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 lg:gap-3">
+              {socialPreferences.map((pref) => (
+                <motion.button
+                  key={pref.id}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => toggleSelection("socialPreferences", pref.id)}
+                  className={`p-3 lg:p-4 rounded-lg lg:rounded-xl border-2 smooth-transition text-center space-y-1 lg:space-y-2 ${
+                    data.socialPreferences.includes(pref.id)
+                      ? "border-primary bg-primary/10"
+                      : "border-border bg-white/5 hover:border-border/50"
+                  }`}
+                >
+                  <div className="text-2xl lg:text-3xl">{pref.emoji}</div>
+                  <p className="text-xs lg:text-sm font-medium text-foreground">{pref.label}</p>
                 </motion.button>
               ))}
             </div>
@@ -199,43 +236,8 @@ export default function PersonalityQuestionnaire() {
             className="space-y-6"
           >
             <div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">Who would you love to meet while traveling?</h2>
-              <p className="text-muted-foreground">Select all that interest you</p>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              {socialPreferences.map((pref) => (
-                <motion.button
-                  key={pref.id}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => toggleSelection("socialPreferences", pref.id)}
-                  className={`p-4 rounded-xl border-2 smooth-transition text-center space-y-2 ${
-                    data.socialPreferences.includes(pref.id)
-                      ? "border-primary bg-primary/10"
-                      : "border-border bg-white/5 hover:border-border/50"
-                  }`}
-                >
-                  <div className="text-3xl">{pref.emoji}</div>
-                  <p className="text-sm font-medium text-foreground">{pref.label}</p>
-                </motion.button>
-              ))}
-            </div>
-          </motion.div>
-        )
-
-      case 5:
-        return (
-          <motion.div
-            key="step5"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-            className="space-y-6"
-          >
-            <div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">Complete Your Profile</h2>
-              <p className="text-muted-foreground">Let's get to know you better</p>
+              <h2 className="text-lg lg:text-2xl font-bold text-foreground mb-2">Add Photos & Bio</h2>
+              <p className="text-sm lg:text-base text-muted-foreground">Let's get to know you better</p>
             </div>
 
             {/* Profile Picture */}
@@ -289,19 +291,39 @@ export default function PersonalityQuestionnaire() {
           </motion.div>
         )
 
+      case 5:
+        return (
+          <motion.div
+            key="step5"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-6"
+          >
+            <div>
+              <h2 className="text-lg lg:text-2xl font-bold text-foreground mb-2">Almost Done!</h2>
+              <p className="text-sm lg:text-base text-muted-foreground">Just a few more questions</p>
+            </div>
+            <div className="p-4 lg:p-6 bg-card rounded-xl border border-border">
+              <p className="text-sm lg:text-base text-foreground text-center">Profile setup complete!</p>
+            </div>
+          </motion.div>
+        )
+
       default:
         return null
     }
   }
 
   return (
-    <div className="w-full h-full bg-background flex flex-col overflow-hidden pb-24">
+    <div className="w-full h-full bg-background flex flex-col overflow-hidden pb-20 lg:pb-24">
       {/* Progress Indicator */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur-sm px-4 py-4"
+        className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur-sm px-3 lg:px-4 py-3 lg:py-4"
       >
         <div className="flex gap-2 justify-center">
           {[1, 2, 3, 4, 5].map((step) => (
@@ -318,7 +340,7 @@ export default function PersonalityQuestionnaire() {
       </motion.div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-4 py-6">
+      <div className="flex-1 overflow-y-auto px-3 lg:px-4 py-4 lg:py-6">
         <AnimatePresence mode="wait">{renderStep()}</AnimatePresence>
       </div>
 
@@ -327,7 +349,7 @@ export default function PersonalityQuestionnaire() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="border-t border-border bg-background/80 backdrop-blur-sm px-4 py-4 flex gap-3"
+        className="border-t border-border bg-background/80 backdrop-blur-sm px-3 lg:px-4 py-3 lg:py-4 flex gap-2 lg:gap-3"
       >
         <Button
           onClick={handlePrev}
@@ -338,22 +360,19 @@ export default function PersonalityQuestionnaire() {
           <ChevronLeft size={16} className="mr-2" />
           Back
         </Button>
-        {currentStep < 5 ? (
-          <Button
-            onClick={handleNext}
-            className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 rounded-lg smooth-transition silver-glow text-sm"
-          >
-            Next
-            <ChevronRight size={16} className="ml-2" />
-          </Button>
-        ) : (
-          <Button
-            onClick={handleFinish}
-            className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 rounded-lg smooth-transition silver-glow text-sm"
-          >
-            Finish Setup
-          </Button>
-        )}
+        <Button
+          onClick={handleNext}
+          className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 rounded-lg smooth-transition silver-glow text-sm"
+        >
+          {currentStep < 5 ? (
+            <>
+              Next
+              <ChevronRight size={16} className="ml-2" />
+            </>
+          ) : (
+            'Finish Setup'
+          )}
+        </Button>
       </motion.div>
     </div>
   )

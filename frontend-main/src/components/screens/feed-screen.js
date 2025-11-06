@@ -184,11 +184,11 @@ export default function FeedScreen() {
       </div>
 
       {/* Main Feed Area */}
-      <div className="flex-1 overflow-y-auto pb-24 scrollbar-hide">
+      <div className="flex-1 overflow-y-auto pb-20 lg:pb-24 scrollbar-hide">
         {/* Header */}
-        <div className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur-sm">
-          <div className="px-4 py-4 flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-foreground">Exora</h1>
+        <div className="sticky top-0 z-10 border-b border-border/30 bg-background/95 backdrop-blur-md shadow-sm">
+          <div className="px-3 lg:px-4 py-3 lg:py-4 flex items-center justify-between">
+            <h1 className="text-xl lg:text-2xl font-bold text-foreground">exora</h1>
             <div className="flex gap-2">
               <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary">
                 <Search size={20} />
@@ -206,8 +206,8 @@ export default function FeedScreen() {
         </div>
 
         {/* Feed Posts - Single Column Layout */}
-        <div className="px-4 py-4">
-          <div className="max-w-2xl mx-auto space-y-4">
+        <div className="px-3 lg:px-4 py-3 lg:py-4">
+          <div className="max-w-2xl mx-auto space-y-3 lg:space-y-4">
           {loading ? (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -255,12 +255,12 @@ export default function FeedScreen() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: idx * 0.1 }}
-              className="bg-card rounded-2xl overflow-hidden border border-border/50 hover:border-border smooth-transition"
+              className="bg-card rounded-xl lg:rounded-2xl overflow-hidden border border-border/50 hover:border-primary/30 hover:shadow-md smooth-transition"
             >
             {/* Post Header */}
-            <div className="p-4 border-b border-border/50 flex items-center justify-between">
+            <div className="p-3 lg:p-4 border-b border-border/50 flex items-center justify-between">
               <div 
-                className="flex items-center gap-3 cursor-pointer hover:bg-white/5 rounded-lg p-2 -m-2 smooth-transition"
+                className="flex items-center gap-3 cursor-pointer hover:bg-muted/50 rounded-lg p-2 -m-2 smooth-transition"
                 onClick={() => {
                   if (post.userId?._id) {
                     // If it's the current user's own post, redirect to profile page
@@ -317,7 +317,7 @@ export default function FeedScreen() {
             )}
 
             {/* Post Caption */}
-            <div className="p-4 space-y-3">
+            <div className="p-3 lg:p-4 space-y-2 lg:space-y-3">
               {post.text && (
                 <p className="text-foreground text-sm leading-relaxed">{post.text}</p>
               )}
@@ -333,7 +333,7 @@ export default function FeedScreen() {
               </div>
 
               {/* Interactions */}
-              <div className="flex gap-1 pt-3 border-t border-border/50">
+              <div className="flex gap-1 lg:gap-2 pt-2 lg:pt-3 border-t border-border/50">
                 <motion.button
                   whileTap={{ scale: 0.95 }}
                   onClick={() => toggleLike(post._id)}
@@ -344,35 +344,35 @@ export default function FeedScreen() {
                   }`}
                 >
                   <Heart size={18} fill={post.isLiked ? "currentColor" : "none"} />
-                  <span className="text-sm font-medium">Like</span>
+                  <span className="text-xs lg:text-sm font-medium hidden sm:inline">Like</span>
                 </motion.button>
                 <motion.button
                   whileTap={{ scale: 0.95 }}
                   onClick={() => toggleComments(post._id)}
-                  className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg smooth-transition text-muted-foreground hover:text-blue-500 hover:bg-blue-500/5"
+                  className="flex-1 flex items-center justify-center gap-1 lg:gap-2 py-2 rounded-lg smooth-transition text-muted-foreground hover:text-blue-500 hover:bg-blue-500/5"
                 >
                   <MessageCircle size={18} />
-                  <span className="text-sm font-medium">Comment</span>
+                  <span className="text-xs lg:text-sm font-medium hidden sm:inline">Comment</span>
                 </motion.button>
                 <Button
                   variant="ghost"
                   size="sm"
                   className="flex-1 text-muted-foreground hover:text-green-500 hover:bg-green-500/5 smooth-transition"
                 >
-                  <Share2 size={18} className="mr-2" />
-                  <span className="text-sm">Share</span>
+                  <Share2 size={18} className="sm:mr-2" />
+                  <span className="text-xs lg:text-sm hidden sm:inline">Share</span>
                 </Button>
                 <motion.button
                   whileTap={{ scale: 0.95 }}
                   onClick={() => toggleSave(post._id)}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg smooth-transition ${
+                  className={`flex-1 flex items-center justify-center gap-1 lg:gap-2 py-2 rounded-lg smooth-transition ${
                     post.saved
                       ? "text-primary bg-primary/10"
                       : "text-muted-foreground hover:text-primary hover:bg-primary/5"
                   }`}
                 >
                   <Bookmark size={18} fill={post.saved ? "currentColor" : "none"} />
-                  <span className="text-sm font-medium">Save</span>
+                  <span className="text-xs lg:text-sm font-medium hidden sm:inline">Save</span>
                 </motion.button>
               </div>
 
@@ -484,7 +484,7 @@ export default function FeedScreen() {
 
       {/* Right Sidebar - Desktop Only */}
       <div className="hidden lg:block">
-        <RightSidebar />
+        <RightSidebar onCreatePost={() => setShowCreateModal(true)} />
       </div>
 
       {/* Create Post Modal */}
@@ -494,17 +494,17 @@ export default function FeedScreen() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-foreground/10 backdrop-blur-md z-50 flex items-center justify-center p-2 lg:p-4"
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="bg-background rounded-2xl border border-border w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+              className="bg-card rounded-xl lg:rounded-2xl border border-border/50 shadow-xl w-full max-w-2xl max-h-[95vh] lg:max-h-[90vh] overflow-y-auto"
             >
               {/* Modal Header */}
-              <div className="flex items-center justify-between p-4 border-b border-border">
-                <h2 className="text-xl font-bold text-foreground">Create Post</h2>
+              <div className="flex items-center justify-between p-3 lg:p-4 border-b border-border">
+                <h2 className="text-lg lg:text-xl font-bold text-foreground">Create Post</h2>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -516,7 +516,7 @@ export default function FeedScreen() {
               </div>
 
               {/* Modal Content */}
-              <div className="p-4 space-y-6">
+              <div className="p-3 lg:p-4 space-y-4 lg:space-y-6">
                 {/* Image Upload */}
                 <div className="space-y-3">
                   <h3 className="text-sm font-semibold text-foreground">Add Photos</h3>
@@ -573,7 +573,7 @@ export default function FeedScreen() {
               </div>
 
               {/* Modal Footer */}
-              <div className="flex gap-3 p-4 border-t border-border">
+              <div className="flex gap-2 lg:gap-3 p-3 lg:p-4 border-t border-border">
                 <Button
                   variant="outline"
                   onClick={() => setShowCreateModal(false)}

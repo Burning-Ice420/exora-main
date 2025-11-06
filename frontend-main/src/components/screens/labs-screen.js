@@ -7,9 +7,12 @@ import { Button } from "@/components/ui/button"
 import TripDetailsModal from "@/components/labs/trip-details-modal"
 import TimelineCanvas from "@/components/labs/timeline-canvas"
 import ExperienceSidebar from "@/components/labs/experience-sidebar"
+import { useSearchParams, useRouter } from "next/navigation"
 import api from "@/server/api"
 
 export default function LabsScreen() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const [showTripModal, setShowTripModal] = useState(false)
   const [trip, setTrip] = useState(null)
   const [selectedExperience, setSelectedExperience] = useState(null)
@@ -43,6 +46,16 @@ export default function LabsScreen() {
 
     loadSavedData()
   }, [])
+
+  // Check for createTrip query parameter to open modal
+  useEffect(() => {
+    const createTrip = searchParams.get('createTrip')
+    if (createTrip === 'true') {
+      setShowTripModal(true)
+      // Clean up URL without reloading
+      router.replace('/labs', { scroll: false })
+    }
+  }, [searchParams, router])
 
   // Load current trip from localStorage on mount
   useEffect(() => {
@@ -217,38 +230,39 @@ export default function LabsScreen() {
     return (
       <div className="w-full h-full bg-background overflow-y-auto scrollbar-hide">
         {/* Header */}
-        <div className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur-sm px-4 py-3">
+        <div className="sticky top-0 z-10 border-b border-border/30 bg-background/95 backdrop-blur-md shadow-sm px-3 lg:px-4 py-2 lg:py-3">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-xl font-bold text-foreground">Trip Planning Lab</h1>
-              <p className="text-xs text-muted-foreground">Plan your perfect adventure</p>
+              <h1 className="text-lg lg:text-xl font-bold text-foreground">Trip Planning Lab</h1>
+              <p className="text-xs text-muted-foreground hidden sm:block">Plan your perfect adventure</p>
             </div>
             <Button
               onClick={() => setShowTripModal(true)}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-2 px-4 rounded-lg smooth-transition silver-glow text-sm"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-2 px-3 lg:px-4 rounded-lg smooth-transition silver-glow text-xs lg:text-sm"
             >
-              <Plus size={16} className="mr-2" />
-              New Trip
+              <Plus size={16} className="mr-1 lg:mr-2" />
+              <span className="hidden sm:inline">New Trip</span>
+              <span className="sm:hidden">New</span>
             </Button>
           </div>
         </div>
 
         {/* Saved Blocks (Primary) */}
-        <div className="p-4">
-          <h2 className="text-lg font-semibold text-foreground mb-4">Your Saved Activities</h2>
+        <div className="p-3 lg:p-4">
+          <h2 className="text-base lg:text-lg font-semibold text-foreground mb-3 lg:mb-4">Your Saved Activities</h2>
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             </div>
           ) : savedBlocks.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
               {savedBlocks.map((block) => (
                 <motion.div
                   key={block._id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   whileHover={{ y: -4 }}
-                  className="glass-effect rounded-xl p-4 space-y-3 hover:bg-white/10 smooth-transition cursor-pointer group"
+                  className="glass-effect rounded-xl p-4 space-y-3 hover:bg-primary/5 hover:shadow-md smooth-transition cursor-pointer group"
                 >
                   <div className="flex items-start justify-between">
                     <div>
@@ -304,17 +318,17 @@ export default function LabsScreen() {
         </div>
 
         {/* Saved Trips (Secondary) */}
-        <div className="p-4 border-t border-border">
-          <h2 className="text-lg font-semibold text-foreground mb-4">Your Trip Plans</h2>
+        <div className="p-3 lg:p-4 border-t border-border">
+          <h2 className="text-base lg:text-lg font-semibold text-foreground mb-3 lg:mb-4">Your Trip Plans</h2>
           {savedTrips.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
               {savedTrips.map((savedTrip) => (
                 <motion.div
                   key={savedTrip._id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   whileHover={{ y: -4 }}
-                  className="glass-effect rounded-xl p-4 space-y-3 hover:bg-white/10 smooth-transition cursor-pointer group"
+                  className="glass-effect rounded-xl p-4 space-y-3 hover:bg-primary/5 hover:shadow-md smooth-transition cursor-pointer group"
                   onClick={() => setTrip(savedTrip)}
                 >
                   <div className="flex items-start justify-between">
@@ -382,7 +396,7 @@ export default function LabsScreen() {
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="sticky top-0 z-20 border-b border-border bg-background/80 backdrop-blur-sm px-4 py-3 flex items-center justify-between"
+        className="sticky top-0 z-20 border-b border-border/30 bg-background/95 backdrop-blur-md shadow-sm px-4 py-3 flex items-center justify-between"
       >
         <div className="flex items-center gap-3">
           <Button
@@ -472,7 +486,7 @@ export default function LabsScreen() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.3 }}
-        className="border-t border-border bg-background/80 backdrop-blur-sm px-4 py-3 flex gap-2"
+        className="border-t border-border/30 bg-background/95 backdrop-blur-md shadow-sm px-4 py-3 flex gap-2"
       >
         <Button
           onClick={handleSaveTrip}
@@ -493,14 +507,14 @@ export default function LabsScreen() {
         </Button>
         <Button
           variant="outline"
-          className="border-border hover:bg-white/5 text-foreground font-semibold py-3 rounded-lg bg-transparent text-sm"
+          className="border-border hover:bg-muted/50 text-foreground font-semibold py-3 rounded-lg bg-transparent text-sm"
         >
           <Share2 size={16} className="mr-2" />
           Share
         </Button>
         <Button
           variant="outline"
-          className="border-border hover:bg-white/5 text-foreground font-semibold py-3 rounded-lg bg-transparent text-sm"
+          className="border-border hover:bg-muted/50 text-foreground font-semibold py-3 rounded-lg bg-transparent text-sm"
         >
           <Download size={16} className="mr-2" />
           Export
@@ -515,7 +529,7 @@ export default function LabsScreen() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setSelectedExperience(null)}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end"
+            className="fixed inset-0 bg-foreground/10 backdrop-blur-md z-50 flex items-end"
           >
             <motion.div
               initial={{ y: 100, opacity: 0 }}
@@ -534,22 +548,22 @@ export default function LabsScreen() {
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                   onClick={() => setSelectedExperience(null)}
-                  className="p-1.5 rounded-lg hover:bg-white/10 smooth-transition"
+                  className="p-1.5 rounded-lg hover:bg-muted/50 smooth-transition"
                 >
                   <X size={16} className="text-foreground" />
                 </motion.button>
               </div>
 
               <div className="space-y-2">
-                <div className="flex items-center justify-between p-2 bg-white/5 rounded-lg border border-border">
+                <div className="flex items-center justify-between p-2 bg-muted/50 rounded-lg border border-border/50">
                   <span className="text-xs text-muted-foreground">Price</span>
                   <span className="text-sm font-bold text-primary">₹{selectedExperience.price}</span>
                 </div>
-                <div className="flex items-center justify-between p-2 bg-white/5 rounded-lg border border-border">
+                <div className="flex items-center justify-between p-2 bg-muted/50 rounded-lg border border-border/50">
                   <span className="text-xs text-muted-foreground">Duration</span>
                   <span className="text-xs font-semibold text-foreground">{selectedExperience.duration}</span>
                 </div>
-                <div className="flex items-center justify-between p-2 bg-white/5 rounded-lg border border-border">
+                <div className="flex items-center justify-between p-2 bg-muted/50 rounded-lg border border-border/50">
                   <span className="text-xs text-muted-foreground">Time Slot</span>
                   <span className="text-xs font-semibold text-foreground capitalize">
                     {selectedExperience.timeSlot}

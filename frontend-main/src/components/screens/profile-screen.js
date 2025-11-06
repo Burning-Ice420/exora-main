@@ -226,9 +226,9 @@ export default function ProfileScreen() {
   return (
     <div className="w-full h-full bg-background overflow-y-auto pb-24 scrollbar-hide">
       {/* Header */}
-      <div className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur-sm">
-        <div className="px-4 py-3 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-foreground">Profile</h1>
+      <div className="sticky top-0 z-10 border-b border-border/30 bg-background/95 backdrop-blur-md shadow-sm">
+        <div className="px-3 lg:px-4 py-2 lg:py-3 flex items-center justify-between">
+          <h1 className="text-lg lg:text-xl font-bold text-foreground">Profile</h1>
           <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary">
             <Settings size={18} />
           </Button>
@@ -236,8 +236,8 @@ export default function ProfileScreen() {
       </div>
 
       {/* Profile Content - Desktop Layout */}
-      <div className="px-4 py-6">
-        <div className="max-w-4xl mx-auto space-y-6">
+      <div className="px-3 lg:px-4 py-4 lg:py-6">
+        <div className="max-w-4xl mx-auto space-y-4 lg:space-y-6">
           {/* Profile Hero Section */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -287,7 +287,7 @@ export default function ProfileScreen() {
           </motion.div>
 
           {/* Action Buttons */}
-          <div className="flex gap-2 lg:max-w-md">
+          <div className="flex flex-col sm:flex-row gap-2 lg:max-w-md w-full">
             <Button
               onClick={() => setShowEditModal(true)}
               className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-2 rounded-lg smooth-transition silver-glow text-sm"
@@ -295,7 +295,7 @@ export default function ProfileScreen() {
               <Edit2 size={14} className="mr-2" />
               Edit Profile
             </Button>
-            <Button variant="outline" className="flex-1 border-border hover:bg-white/5 bg-transparent text-foreground py-2 text-sm">
+            <Button variant="outline" className="flex-1 border-border hover:bg-muted/50 bg-transparent text-foreground py-2 text-sm">
               <Share2 size={14} className="mr-2" />
               Share
             </Button>
@@ -341,7 +341,7 @@ export default function ProfileScreen() {
               className="space-y-3"
             >
               <h3 className="text-lg font-semibold text-foreground">Photos</h3>
-              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-2 lg:gap-3">
                 {user.photos.map((photo, idx) => (
                   <motion.div
                     key={idx}
@@ -349,7 +349,7 @@ export default function ProfileScreen() {
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.2, delay: idx * 0.05 }}
                     whileHover={{ scale: 1.05 }}
-                    className="glass-effect rounded-xl overflow-hidden hover:bg-white/10 smooth-transition cursor-pointer group"
+                    className="glass-effect rounded-xl overflow-hidden hover:bg-primary/5 hover:shadow-md smooth-transition cursor-pointer group"
                   >
                     <div className="w-full h-24 lg:h-28 relative overflow-hidden">
                       <img 
@@ -377,7 +377,7 @@ export default function ProfileScreen() {
                 View All
               </Button>
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-2 lg:gap-3">
               {trips.map((trip, idx) => (
                 <motion.div
                   key={trip.id}
@@ -385,7 +385,7 @@ export default function ProfileScreen() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: idx * 0.05 }}
                   whileHover={{ y: -4 }}
-                  className="glass-effect rounded-xl overflow-hidden hover:bg-white/10 smooth-transition cursor-pointer group"
+                  className="glass-effect rounded-xl overflow-hidden hover:bg-primary/5 hover:shadow-md smooth-transition cursor-pointer group"
                 >
                   <div className="w-full h-24 lg:h-28 bg-gradient-to-br from-muted to-background flex items-center justify-center text-3xl lg:text-4xl relative overflow-hidden">
                     <motion.div whileHover={{ scale: 1.1 }} transition={{ duration: 0.3 }} className="text-3xl lg:text-4xl">
@@ -420,7 +420,7 @@ export default function ProfileScreen() {
                   <Users size={16} /> Incoming Requests ({incomingRequests.length})
                 </h3>
               </div>
-              <div className="flex gap-2 lg:gap-3 overflow-x-auto pb-2 scrollbar-hide">
+              <div className="flex gap-2 lg:gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-3 lg:mx-0 px-3 lg:px-0">
                 {incomingRequests.map((conn, idx) => {
                   const requesterUser = conn.userId
                   return (
@@ -742,17 +742,17 @@ export default function ProfileScreen() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-foreground/10 backdrop-blur-md z-50 flex items-center justify-center p-2 lg:p-4"
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="bg-background rounded-2xl border border-border w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+              className="bg-card rounded-xl lg:rounded-2xl border border-border/50 shadow-xl w-full max-w-2xl max-h-[95vh] lg:max-h-[90vh] overflow-y-auto"
             >
               {/* Modal Header */}
-              <div className="flex items-center justify-between p-4 border-b border-border">
-                <h2 className="text-xl font-bold text-foreground">Edit Profile</h2>
+              <div className="flex items-center justify-between p-3 lg:p-4 border-b border-border">
+                <h2 className="text-lg lg:text-xl font-bold text-foreground">Edit Profile</h2>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -767,7 +767,7 @@ export default function ProfileScreen() {
               </div>
 
               {/* Modal Content */}
-              <div className="p-4 space-y-6">
+              <div className="p-3 lg:p-4 space-y-4 lg:space-y-6">
                 {/* Profile Image Upload */}
                 <div className="space-y-3">
                   <h3 className="text-sm font-semibold text-foreground">Profile Photo</h3>

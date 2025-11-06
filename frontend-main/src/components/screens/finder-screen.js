@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { MapPin, Users, Clock, Filter, X, Check, Loader2, UserPlus, MessageCircle, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { motion, AnimatePresence } from "framer-motion"
 import api from "@/server/api"
 import Map from "@/components/ui/map"
-import { useRouter } from "next/navigation"
+import BottomSheet from "@/components/ui/bottom-sheet"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
 import TripRequestsManager from "@/components/ui/trip-requests-manager"
 import FirebaseChat from "@/components/ui/firebase-chat"
@@ -14,6 +15,7 @@ import { useToast } from "@/components/ui/toast"
 
 export default function FinderScreen() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user } = useAuth()
   const [selectedTrip, setSelectedTrip] = useState(null)
   const [showFilters, setShowFilters] = useState(false)
@@ -129,13 +131,26 @@ export default function FinderScreen() {
     loadPublicTrips()
   }, [])
 
+  // Handle tripId query parameter to open modal
+  useEffect(() => {
+    const tripId = searchParams.get('tripId')
+    if (tripId && trips.length > 0 && !selectedTrip) {
+      const trip = trips.find(t => t._id === tripId)
+      if (trip) {
+        setSelectedTrip(trip)
+        // Clean up URL without reloading
+        router.replace('/finder', { scroll: false })
+      }
+    }
+  }, [searchParams, trips, selectedTrip, router])
+
   const handleRequestToJoin = async (experienceId) => {
     try {
       setRequestSent(experienceId)
       await api.joinExperience(experienceId)
       setTimeout(() => {
         setRequestSent(null)
-        setSelectedExperience(null)
+        setSelectedTrip(null)
       }, 2000)
     } catch (error) {
       console.error('Failed to join experience:', error)
@@ -184,22 +199,46 @@ export default function FinderScreen() {
     return trip.createdBy?._id === user?._id
   }
 
-  const filteredTrips = (trips || []).filter((trip) => {
-    if (filters.category !== "all" && trip.category !== filters.category) return false
-    if (filters.priceRange === "free" && trip.budget !== 0) return false
-    if (filters.priceRange === "paid" && trip.budget === 0) return false
-    return true
-  })
+  // Memoize filtered trips to prevent unnecessary map re-renders
+  const filteredTrips = useMemo(() => {
+    return (trips || []).filter((trip) => {
+      if (filters.category !== "all" && trip.category !== filters.category) return false
+      if (filters.priceRange === "free" && trip.budget !== 0) return false
+      if (filters.priceRange === "paid" && trip.budget === 0) return false
+      return true
+    })
+  }, [trips, filters.category, filters.priceRange])
+
+  // Memoize callback functions to prevent map re-renders
+  const handleMarkerClick = useCallback((trip) => {
+    setSelectedTrip(trip)
+  }, [])
+
+  const handleMarkerHover = useCallback((trip) => {
+    // Optional: Add hover preview logic here if needed
+  }, [])
 
   return (
-    <div className="w-full h-full bg-background overflow-y-auto pb-24 scrollbar-hide">
-      {/* Header */}
-      <div className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur-sm">
-        <div className="px-4 py-3">
-          <div className="flex items-center justify-between mb-3">
+    <div className="w-full h-full relative">
+      {/* Full Screen Map */}
+      <div className="absolute inset-0 z-0 bg-background">
+        <Map 
+          experiences={filteredTrips}
+          center={[15.2993, 74.1240]} // Goa, India coordinates
+          zoom={13}
+          className="w-full h-full"
+          onMarkerClick={handleMarkerClick}
+          onMarkerHover={handleMarkerHover}
+        />
+      </div>
+
+      {/* Floating Header */}
+      <div className="absolute top-0 left-0 right-0 z-20 bg-background/95 backdrop-blur-md border-b border-border/30 shadow-sm">
+        <div className="px-3 lg:px-4 py-2 lg:py-3">
+          <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-xl font-bold text-foreground">Exora Finder</h1>
-              <p className="text-xs text-muted-foreground">Discover experiences near you</p>
+              <h1 className="text-lg lg:text-xl font-bold text-foreground">exora Finder</h1>
+              <p className="text-xs text-muted-foreground hidden sm:block">Discover experiences near you</p>
             </div>
             <Button
               onClick={() => setShowFilters(!showFilters)}
@@ -229,8 +268,8 @@ export default function FinderScreen() {
                         onClick={() => setFilters({ ...filters, category: cat })}
                         className={`px-3 py-1 rounded-full text-xs font-medium smooth-transition ${
                           filters.category === cat
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-white/5 text-muted-foreground hover:bg-white/10"
+                            ? "bg-primary text-primary-foreground shadow-sm"
+                            : "bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary"
                         }`}
                       >
                         {cat === "all" ? "All" : cat}
@@ -244,94 +283,84 @@ export default function FinderScreen() {
         </div>
       </div>
 
-      {/* Interactive Map */}
-      <div className="w-full border-b border-border relative z-10">
-        <Map 
-          experiences={filteredTrips}
-          center={[15.2993, 74.1240]} // Goa, India coordinates
-          zoom={13}
-          className="h-64 lg:h-80"
-        />
-      </div>
-
-      {/* Experiences List - Desktop Grid Layout */}
-      <div className="px-4 py-4">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-foreground">
-            {loading ? "Loading..." : `${filteredTrips.length} Public Trips`}
-          </h2>
-        </div>
-
+      {/* Bottom Sheet with Trips */}
+      <BottomSheet>
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 size={32} className="animate-spin text-primary" />
           </div>
         ) : (
-          <>
-            {/* Desktop Grid Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 max-w-7xl mx-auto">
-          {filteredTrips.map((trip, idx) => (
-            <motion.div
-              key={trip._id || trip.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: idx * 0.1 }}
-              onClick={() => setSelectedTrip(trip)}
-              className="glass-effect rounded-xl p-3 space-y-3 hover:bg-white/10 smooth-transition cursor-pointer group"
-            >
-              <div className="flex justify-between items-start gap-2">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="text-xl">🗺️</div>
-                    <div>
-                      <h3 className="font-semibold text-foreground text-sm group-hover:text-primary smooth-transition line-clamp-1">
-                        {trip.name}
-                      </h3>
-                      <p 
-                        className="text-xs text-muted-foreground hover:text-primary cursor-pointer smooth-transition"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          if (trip.createdBy?._id) {
-                            // If it's the current user's own trip, redirect to profile page
-                            if (trip.createdBy._id === user?._id) {
-                              router.push('/profile')
-                            } else {
-                              router.push(`/user/${trip.createdBy._id}`)
-                            }
-                          }
-                        }}
-                      >
-                        by {trip.createdBy?.name || 'Unknown'}
-                      </p>
+          <div className="px-3 lg:px-4 py-3 lg:py-4 space-y-2 lg:space-y-3">
+            {filteredTrips.length === 0 ? (
+              <div className="text-center py-8 lg:py-12">
+                <p className="text-xs lg:text-sm text-muted-foreground">No trips found</p>
+              </div>
+            ) : (
+              filteredTrips.map((trip, idx) => (
+                <motion.div
+                  key={trip._id || trip.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: idx * 0.05 }}
+                  onClick={() => setSelectedTrip(trip)}
+                  className="glass-effect rounded-xl p-4 space-y-3 hover:bg-primary/5 hover:shadow-md smooth-transition cursor-pointer group border border-border/50"
+                >
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="text-xl">🗺️</div>
+                        <div>
+                          <h3 className="font-semibold text-foreground text-sm group-hover:text-primary smooth-transition line-clamp-1">
+                            {trip.name}
+                          </h3>
+                          <p 
+                            className="text-xs text-muted-foreground hover:text-primary cursor-pointer smooth-transition"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (trip.createdBy?._id) {
+                                if (trip.createdBy._id === user?._id) {
+                                  router.push('/profile')
+                                } else {
+                                  router.push(`/user/${trip.createdBy._id}`)
+                                }
+                              }
+                            }}
+                          >
+                            by {trip.createdBy?.name || 'Unknown'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-primary font-medium">{trip.location}</p>
+                      {trip.budget > 0 && <p className="text-xs text-muted-foreground">₹{trip.budget}</p>}
                     </div>
                   </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-primary font-medium">{trip.location}</p>
-                  {trip.budget > 0 && <p className="text-xs text-muted-foreground">₹{trip.budget}</p>}
-                </div>
-              </div>
 
-              <div className="flex gap-3 text-xs text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <Users size={12} className="text-primary" />
-                  <span>{trip.membersInvolved?.length || 0} {trip.membersInvolved?.length === 1 ? 'member' : 'members'}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Clock size={12} className="text-primary" />
-                  <span className="line-clamp-1">{new Date(trip.startDate).toLocaleDateString()}</span>
-                </div>
-              </div>
+                  <div className="flex gap-3 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <Users size={12} className="text-primary" />
+                      <span>{trip.membersInvolved?.length || 0} {trip.membersInvolved?.length === 1 ? 'member' : 'members'}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Clock size={12} className="text-primary" />
+                      <span className="line-clamp-1">{new Date(trip.startDate).toLocaleDateString()}</span>
+                    </div>
+                  </div>
 
-              <div className="inline-block px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
-                {trip.visibility}
-              </div>
-            </motion.div>
-          ))}
+                  {trip.description && (
+                    <p className="text-xs text-muted-foreground line-clamp-2">{trip.description}</p>
+                  )}
+
+                  <div className="inline-block px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
+                    {trip.visibility}
+                  </div>
+                </motion.div>
+              ))
+            )}
           </div>
-          </>
         )}
-      </div>
+      </BottomSheet>
 
       {/* Trip Detail Modal */}
       <AnimatePresence>
@@ -341,21 +370,21 @@ export default function FinderScreen() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setSelectedTrip(null)}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
-            style={{ zIndex: 9999 }}
+            className="fixed inset-0 bg-foreground/10 backdrop-blur-md z-[100] flex items-center justify-center p-2 lg:p-6 md:p-8"
+            style={{ zIndex: 100 }}
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-lg bg-background rounded-2xl p-4 space-y-4 max-h-[90vh] overflow-y-auto scrollbar-hide relative z-[10000]"
-              style={{ zIndex: 10000 }}
+              className="w-full max-w-lg bg-card rounded-xl lg:rounded-2xl p-4 lg:p-8 md:p-10 space-y-4 lg:space-y-5 max-h-[95vh] lg:max-h-[90vh] overflow-y-auto scrollbar-hide relative z-[101] shadow-xl border border-border/50"
+              style={{ zIndex: 101 }}
             >
               {/* Close Button */}
               <button
                 onClick={() => setSelectedTrip(null)}
-                className="absolute top-3 right-3 p-1.5 hover:bg-white/10 rounded-full smooth-transition"
+                className="absolute top-3 right-3 p-1.5 hover:bg-muted rounded-full smooth-transition"
               >
                 <X size={16} className="text-muted-foreground" />
               </button>
@@ -367,7 +396,7 @@ export default function FinderScreen() {
                   <h2 className="text-lg font-bold text-foreground mb-1">{selectedTrip.name}</h2>
                   <p className="text-xs text-muted-foreground mb-2">{selectedTrip.location}</p>
                   <div 
-                    className="flex items-center gap-2 cursor-pointer hover:bg-white/5 rounded-lg p-2 -m-2 smooth-transition"
+                    className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 rounded-lg p-2 -m-2 smooth-transition"
                     onClick={() => {
                       if (selectedTrip.createdBy?._id) {
                         // If it's the current user's own trip, redirect to profile page

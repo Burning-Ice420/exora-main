@@ -1,5 +1,5 @@
 // API layer for all backend communication
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.exora.in'
 
 class ApiClient {
   constructor() {

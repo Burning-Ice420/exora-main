@@ -18,7 +18,7 @@ export default function HomePage() {
           <div className="text-2xl">🏠</div>
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-foreground mb-2">Exora</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-2">exora</h2>
           <p className="text-muted-foreground">Redirecting to feed...</p>
         </div>
       </div>

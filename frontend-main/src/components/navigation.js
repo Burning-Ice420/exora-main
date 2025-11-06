@@ -19,7 +19,6 @@ export default function Navigation() {
     { id: "feed", label: "Feed", icon: HomeIcon, href: "/feed" },
     { id: "finder", label: "Finder", icon: Search, href: "/finder" },
     { id: "labs", label: "Labs", icon: Compass, href: "/labs" },
-    { id: "family", label: "Family", icon: Users, href: "/family" },
     { id: "profile", label: "Profile", icon: User, href: "/profile" },
     { id: "settings", label: "Settings", icon: Settings, href: "/settings" },
   ]

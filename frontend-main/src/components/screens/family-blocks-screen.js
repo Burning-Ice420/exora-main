@@ -59,7 +59,7 @@ export default function FamilyBlocksScreen() {
   return (
     <div className="w-full h-full bg-background overflow-y-auto scrollbar-hide">
       {/* Header */}
-      <div className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur-sm px-4 py-3">
+      <div className="sticky top-0 z-10 border-b border-border/30 bg-background/95 backdrop-blur-md shadow-sm px-4 py-3">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-foreground">Family Blocks</h1>
@@ -148,7 +148,7 @@ export default function FamilyBlocksScreen() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   whileHover={{ y: -4 }}
-                  className="glass-effect rounded-xl p-4 space-y-3 hover:bg-white/10 smooth-transition cursor-pointer group"
+                  className="glass-effect rounded-xl p-4 space-y-3 hover:bg-primary/5 hover:shadow-md smooth-transition cursor-pointer group"
                   onClick={() => setSelectedBlock(block)}
                 >
                   <div className="flex items-start justify-between">
@@ -236,7 +236,7 @@ export default function FamilyBlocksScreen() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-foreground/10 backdrop-blur-md z-50 flex items-center justify-center p-4"
             onClick={() => setSelectedBlock(null)}
           >
             <motion.div

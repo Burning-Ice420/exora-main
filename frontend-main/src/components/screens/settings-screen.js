@@ -1,17 +1,20 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { Settings, User, Bell, Shield, Palette, Globe, LogOut, Save, Edit3 } from "lucide-react"
+import { Settings, User, Bell, Shield, Palette, Globe, LogOut, Save, Edit3, Sun, Moon, Monitor } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
+import { useTheme } from "@/contexts/ThemeContext"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 
 export default function SettingsScreen() {
   const { user, logout } = useAuth()
+  const { theme, setTheme } = useTheme()
   const [activeTab, setActiveTab] = useState("profile")
   const [loading, setLoading] = useState(false)
+  const [systemTheme, setSystemTheme] = useState("light")
   const [notifications, setNotifications] = useState({
     email: true,
     push: true,
@@ -23,10 +26,34 @@ export default function SettingsScreen() {
     showOnlineStatus: true
   })
 
+  useEffect(() => {
+    // Detect system theme preference
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
+    setSystemTheme(mediaQuery.matches ? "dark" : "light")
+    
+    const handleChange = (e) => {
+      setSystemTheme(e.matches ? "dark" : "light")
+    }
+    
+    mediaQuery.addEventListener("change", handleChange)
+    return () => mediaQuery.removeEventListener("change", handleChange)
+  }, [])
+
   const handleLogout = async () => {
     setLoading(true)
     await logout()
     setLoading(false)
+  }
+
+  const handleThemeChange = (newTheme) => {
+    setTheme(newTheme)
+  }
+
+  const getCurrentTheme = () => {
+    if (theme === "system") {
+      return systemTheme
+    }
+    return theme
   }
 
   const tabs = [
@@ -57,9 +84,9 @@ export default function SettingsScreen() {
         </div>
       </div>
 
-      <div className="space-y-4">
-        <h4 className="text-md font-semibold text-foreground">Account Information</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="space-y-3 lg:space-y-4">
+        <h4 className="text-sm lg:text-md font-semibold text-foreground">Account Information</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 lg:gap-4">
           <div>
             <label className="text-sm font-medium text-foreground mb-2 block">Name</label>
             <Input value={user?.name || ""} disabled className="bg-muted" />
@@ -163,34 +190,67 @@ export default function SettingsScreen() {
     </div>
   )
 
-  const renderAppearanceSettings = () => (
-    <div className="space-y-6">
-      <h4 className="text-md font-semibold text-foreground">Appearance</h4>
-      
-      <div className="space-y-4">
-        <div className="p-4 bg-card rounded-xl border border-border">
-          <h5 className="font-medium text-foreground mb-2">Theme</h5>
-          <p className="text-sm text-muted-foreground mb-4">Choose your preferred theme</p>
-          <div className="flex gap-3">
-            <Button variant="outline" className="flex-1">Light</Button>
-            <Button className="flex-1">Dark</Button>
-            <Button variant="outline" className="flex-1">System</Button>
+  const renderAppearanceSettings = () => {
+    const currentTheme = getCurrentTheme()
+    const isLight = currentTheme === "light"
+    const isDark = currentTheme === "dark"
+    const isSystem = theme === "system"
+    
+    return (
+      <div className="space-y-6">
+        <h4 className="text-md font-semibold text-foreground">Appearance</h4>
+        
+        <div className="space-y-4">
+          <div className="p-4 bg-card rounded-xl border border-border">
+            <h5 className="font-medium text-foreground mb-2">Theme</h5>
+            <p className="text-sm text-muted-foreground mb-4">Choose your preferred theme</p>
+            <div className="flex gap-3">
+              <Button 
+                variant={isLight && !isSystem ? "default" : "outline"}
+                onClick={() => handleThemeChange("light")}
+                className={`flex-1 flex items-center justify-center gap-2 ${isLight && !isSystem ? "" : "hover:bg-muted/50"}`}
+              >
+                <Sun size={16} />
+                Light
+              </Button>
+              <Button 
+                variant={isDark && !isSystem ? "default" : "outline"}
+                onClick={() => handleThemeChange("dark")}
+                className={`flex-1 flex items-center justify-center gap-2 ${isDark && !isSystem ? "" : "hover:bg-muted/50"}`}
+              >
+                <Moon size={16} />
+                Dark
+              </Button>
+              <Button 
+                variant={isSystem ? "default" : "outline"}
+                onClick={() => handleThemeChange("system")}
+                className={`flex-1 flex items-center justify-center gap-2 ${isSystem ? "" : "hover:bg-muted/50"}`}
+              >
+                <Monitor size={16} />
+                System
+              </Button>
+            </div>
+            {isSystem && (
+              <p className="text-xs text-muted-foreground mt-3">
+                Currently using {systemTheme} mode (system preference)
+              </p>
+            )}
+          </div>
+
+          <div className="p-4 bg-card rounded-xl border border-border">
+            <h5 className="font-medium text-foreground mb-2">Language</h5>
+            <p className="text-sm text-muted-foreground mb-4">Select your preferred language</p>
+            <select className="w-full p-3 bg-background border border-border rounded-lg text-foreground">
+              <option>English</option>
+              <option>Spanish</option>
+              <option>French</option>
+              <option>German</option>
+            </select>
           </div>
         </div>
-
-        <div className="p-4 bg-card rounded-xl border border-border">
-          <h5 className="font-medium text-foreground mb-2">Language</h5>
-          <p className="text-sm text-muted-foreground mb-4">Select your preferred language</p>
-          <select className="w-full p-3 bg-background border border-border rounded-lg text-foreground">
-            <option>English</option>
-            <option>Spanish</option>
-            <option>French</option>
-            <option>German</option>
-          </select>
-        </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   const renderLanguageSettings = () => (
     <div className="space-y-6">
@@ -224,15 +284,15 @@ export default function SettingsScreen() {
 
   return (
     <div className="w-full h-full bg-background overflow-hidden">
-      <div className="flex h-full">
+      <div className="flex flex-col lg:flex-row h-full">
         {/* Settings Sidebar */}
-        <div className="w-64 bg-card border-r border-border p-6">
-          <div className="flex items-center gap-3 mb-8">
-            <Settings size={24} className="text-primary" />
-            <h2 className="text-xl font-bold text-foreground">Settings</h2>
+        <div className="w-full lg:w-64 bg-card border-b lg:border-r border-border p-4 lg:p-6">
+          <div className="flex items-center gap-3 mb-4 lg:mb-8">
+            <Settings size={20} className="text-primary" />
+            <h2 className="text-lg lg:text-xl font-bold text-foreground">Settings</h2>
           </div>
           
-          <nav className="space-y-2">
+          <nav className="flex lg:flex-col gap-2 lg:space-y-2 overflow-x-auto lg:overflow-x-visible pb-2 lg:pb-0 -mx-4 lg:mx-0 px-4 lg:px-0">
             {tabs.map((tab) => {
               const Icon = tab.icon
               const isActive = activeTab === tab.id
@@ -240,14 +300,14 @@ export default function SettingsScreen() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors ${
+                  className={`flex-shrink-0 flex items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2 lg:py-3 rounded-lg smooth-transition text-left ${
                     isActive
                       ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                      : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                   }`}
                 >
-                  <Icon size={20} />
-                  <span className="font-medium">{tab.label}</span>
+                  <Icon size={18} className="" />
+                  <span className="text-sm lg:text-base font-medium whitespace-nowrap">{tab.label}</span>
                 </button>
               )
             })}
@@ -255,7 +315,7 @@ export default function SettingsScreen() {
         </div>
 
         {/* Settings Content */}
-        <div className="flex-1 p-8 overflow-y-auto scrollbar-hide">
+        <div className="flex-1 p-4 lg:p-8 overflow-y-auto scrollbar-hide">
           <div className="max-w-4xl">
             {activeTab === "profile" && renderProfileSettings()}
             {activeTab === "notifications" && renderNotificationSettings()}

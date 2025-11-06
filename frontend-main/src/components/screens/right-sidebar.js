@@ -2,9 +2,11 @@
 
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
+import { useRouter } from "next/navigation"
 import { TrendingUp, Users, Calendar, MapPin, Star, Plus } from "lucide-react"
 
-export default function RightSidebar() {
+export default function RightSidebar({ onCreatePost }) {
+  const router = useRouter()
   const trendingNews = [
     { title: "Goa Tourism Sees 40% Growth", time: "2h", readers: "1.2k" },
     { title: "New Adventure Trails Open", time: "4h", readers: "856" },
@@ -18,11 +20,32 @@ export default function RightSidebar() {
     { name: "Food Tour", date: "Next Week", location: "Delhi", participants: 18 },
   ]
 
+  const handleQuickAction = (action) => {
+    switch (action) {
+      case "createPost":
+        if (onCreatePost) {
+          onCreatePost()
+        }
+        break
+      case "planTrip":
+        router.push("/labs?createTrip=true")
+        break
+      case "findEvents":
+        router.push("/finder")
+        break
+      case "createGroup":
+        router.push("/labs")
+        break
+      default:
+        break
+    }
+  }
+
   const quickActions = [
-    { icon: Plus, label: "Create Post", color: "text-primary" },
-    { icon: Calendar, label: "Plan Trip", color: "text-blue-500" },
-    { icon: MapPin, label: "Find Events", color: "text-green-500" },
-    { icon: Users, label: "Create Group", color: "text-purple-500" },
+    { icon: Plus, label: "Create Post", color: "text-primary", action: "createPost" },
+    { icon: Calendar, label: "Plan Trip", color: "text-blue-500", action: "planTrip" },
+    { icon: MapPin, label: "Find Events", color: "text-green-500", action: "findEvents" },
+    { icon: Users, label: "Create Group", color: "text-purple-500", action: "createGroup" },
   ]
 
   return (
@@ -40,7 +63,7 @@ export default function RightSidebar() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.3, delay: idx * 0.1 }}
-              className="p-3 rounded-lg hover:bg-white/5 smooth-transition cursor-pointer"
+              className="p-3 rounded-lg hover:bg-muted/50 smooth-transition cursor-pointer"
             >
               <p className="text-sm font-medium text-foreground mb-1">{news.title}</p>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -69,7 +92,8 @@ export default function RightSidebar() {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.3, delay: idx * 0.1 }}
-              className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-white/10 smooth-transition border border-border"
+              onClick={() => handleQuickAction(action.action)}
+              className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-primary/5 hover:shadow-sm smooth-transition border border-border/50"
             >
               <action.icon size={20} className={action.color} />
               <span className="text-xs font-medium text-foreground">{action.label}</span>
@@ -100,28 +124,6 @@ export default function RightSidebar() {
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <span>Humidity: 65%</span>
             <span>Wind: 12 km/h</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Travel Tips */}
-      <div className="p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <MapPin size={16} className="text-primary" />
-          <h3 className="text-sm font-semibold text-foreground">Travel Tips</h3>
-        </div>
-        <div className="space-y-2">
-          <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
-            <p className="text-xs font-medium text-primary">💡 Pro Tip</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Book accommodations 2-3 weeks in advance for better rates
-            </p>
-          </div>
-          <div className="p-2 rounded-lg bg-green-500/10 border border-green-500/20">
-            <p className="text-xs font-medium text-green-500">🌱 Eco-Friendly</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Carry a reusable water bottle to reduce plastic waste
-            </p>
           </div>
         </div>
       </div>
