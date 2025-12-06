@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
-import { MapPin, Eye, EyeOff, X, Search } from "lucide-react"
+import { MapPin, Eye, EyeOff, X, Search, Navigation, Check } from "lucide-react"
 import LocationSearch from "@/components/ui/location-search"
+import MapPicker from "@/components/ui/map-picker"
 
 export default function TripDetailsModal({ onCreateTrip, isOpen, onClose }) {
   const [formData, setFormData] = useState({
@@ -14,8 +15,11 @@ export default function TripDetailsModal({ onCreateTrip, isOpen, onClose }) {
     endDate: "",
     visibility: "public",
     budget: 10000,
+    startCoordinates: null,
   })
   const [showLocationSearch, setShowLocationSearch] = useState(false)
+  const [showMapPicker, setShowMapPicker] = useState(false)
+  const [coordinatesAccepted, setCoordinatesAccepted] = useState(false)
 
   const isValid = formData.name && formData.location && formData.startDate && formData.endDate
 
@@ -39,8 +43,11 @@ export default function TripDetailsModal({ onCreateTrip, isOpen, onClose }) {
         endDate: "",
         visibility: "public",
         budget: 10000,
+        startCoordinates: null,
       })
       setShowLocationSearch(false)
+      setShowMapPicker(false)
+      setCoordinatesAccepted(false)
     }
   }, [isOpen])
 
@@ -99,16 +106,16 @@ export default function TripDetailsModal({ onCreateTrip, isOpen, onClose }) {
           </div>
 
           {/* Location */}
-          <div className="space-y-1">
+          <div className="space-y-2">
             <label className="text-xs font-medium text-foreground">Location</label>
             {formData.location ? (
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-border">
                 <MapPin size={14} className="text-muted-foreground" />
-                <span className="text-sm text-foreground font-medium">{formData.location}</span>
+                <span className="text-sm text-foreground font-medium flex-1">{formData.location}</span>
                 <button
                   type="button"
-                  onClick={() => setFormData((prev) => ({ ...prev, location: "" }))}
-                  className="ml-auto p-1 rounded hover:bg-white/10 smooth-transition"
+                  onClick={() => setFormData((prev) => ({ ...prev, location: "", startCoordinates: null }))}
+                  className="p-1 rounded hover:bg-white/10 smooth-transition"
                 >
                   <X size={12} className="text-muted-foreground" />
                 </button>
@@ -122,6 +129,63 @@ export default function TripDetailsModal({ onCreateTrip, isOpen, onClose }) {
                 <Search size={14} />
                 Search for a location...
               </button>
+            )}
+            
+            {/* Map Picker Button */}
+            {formData.location && (
+              <div className="space-y-2">
+                {formData.startCoordinates ? (
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowMapPicker(true)
+                          setCoordinatesAccepted(false)
+                        }}
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border-2 border-primary bg-primary/10 text-primary text-sm smooth-transition hover:bg-primary/20"
+                      >
+                        <Navigation size={14} />
+                        {coordinatesAccepted ? "Change Starting Point" : "Set Starting Point"}
+                      </button>
+                      {!coordinatesAccepted && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCoordinatesAccepted(true)
+                          }}
+                          className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm smooth-transition hover:bg-primary/90 font-semibold"
+                        >
+                          <Check size={14} />
+                          Accept
+                        </button>
+                      )}
+                    </div>
+                    <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg ${
+                      coordinatesAccepted 
+                        ? "text-foreground bg-green-500/10 border border-green-500/20" 
+                        : "text-foreground bg-muted/50"
+                    }`}>
+                      <MapPin size={12} className={coordinatesAccepted ? "text-green-500" : "text-primary"} />
+                      <span className="font-mono">
+                        {formData.startCoordinates[0].toFixed(6)}, {formData.startCoordinates[1].toFixed(6)}
+                      </span>
+                      {coordinatesAccepted && (
+                        <Check size={12} className="text-green-500 ml-auto" />
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowMapPicker(true)}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg border-2 border-border bg-white/5 text-muted-foreground hover:text-foreground hover:border-primary/50 text-sm smooth-transition"
+                  >
+                    <Navigation size={14} />
+                    Mark Starting Point on Map
+                  </button>
+                )}
+              </div>
             )}
           </div>
 
@@ -218,6 +282,47 @@ export default function TripDetailsModal({ onCreateTrip, isOpen, onClose }) {
               </div>
               <LocationSearch onLocationSelect={handleLocationSelect} value={formData.location} />
             </div>
+          </div>
+        )}
+
+        {/* Map Picker Modal */}
+        {showMapPicker && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-background border border-border rounded-2xl p-4 max-w-4xl w-full h-[80vh] flex flex-col"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">Set Starting Point</h3>
+                  <p className="text-xs text-muted-foreground mt-1">Click on the map to mark where your trip starts</p>
+                </div>
+                <button
+                  onClick={() => setShowMapPicker(false)}
+                  className="p-1 rounded hover:bg-white/10 smooth-transition"
+                >
+                  <X size={20} className="text-muted-foreground" />
+                </button>
+              </div>
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <MapPicker
+                  key={showMapPicker ? 'map-picker-open' : 'map-picker-closed'}
+                  initialCenter={formData.startCoordinates ? [formData.startCoordinates[0], formData.startCoordinates[1]] : [15.2993, 74.1240]}
+                  onLocationSelect={(location) => {
+                    console.log('Location selected:', location)
+                    setFormData((prev) => ({
+                      ...prev,
+                      startCoordinates: location.coordinates
+                    }))
+                    setCoordinatesAccepted(true)
+                    setShowMapPicker(false)
+                  }}
+                  onCancel={() => setShowMapPicker(false)}
+                />
+              </div>
+            </motion.div>
           </div>
         )}
       </motion.div>

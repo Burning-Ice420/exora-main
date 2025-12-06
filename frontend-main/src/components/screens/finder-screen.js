@@ -47,86 +47,7 @@ export default function FinderScreen() {
         setTrips(Array.isArray(tripsData) ? tripsData : [])
       } catch (error) {
         console.error('Failed to load public trips:', error)
-        setTrips([
-          {
-            _id: "1",
-            name: "Sunset Beach Bonfire",
-            host: "Sarah",
-            hostAvatar: "👩",
-            participants: 4,
-            time: "Today, 6 PM",
-            distance: "2.3 km away",
-            category: "Beach",
-            price: 0,
-            description: "Join us for an unforgettable sunset bonfire on the beach. Bring your favorite snacks and stories!",
-            image: "🔥",
-          },
-          {
-            _id: "2",
-            name: "Goa Food Tour",
-            host: "Marco",
-            hostAvatar: "👨",
-            participants: 6,
-            time: "Tomorrow, 10 AM",
-            distance: "1.8 km away",
-            category: "Food",
-            price: 500,
-            description: "Explore the best street food spots in Goa. Taste authentic Goan cuisine with a local guide.",
-            image: "🍜",
-          },
-          {
-            _id: "3",
-            name: "Water Sports Adventure",
-            host: "Raj",
-            hostAvatar: "👨",
-            participants: 3,
-            time: "This weekend",
-            distance: "3.1 km away",
-            category: "Adventure",
-            price: 1500,
-            description: "Jet skiing, parasailing, and paddleboarding. All equipment provided. Beginner-friendly!",
-            image: "🏄",
-          },
-          {
-            _id: "4",
-            name: "Yoga & Meditation",
-            host: "Priya",
-            hostAvatar: "👩",
-            participants: 8,
-            time: "Daily, 6 AM",
-            distance: "0.5 km away",
-            category: "Wellness",
-            price: 200,
-            description: "Start your day with sunrise yoga and meditation. Perfect for relaxation and connection.",
-            image: "🧘",
-          },
-          {
-            _id: "5",
-            name: "Night Market Exploration",
-            host: "Alex",
-            hostAvatar: "👨",
-            participants: 5,
-            time: "Tonight, 8 PM",
-            distance: "2.1 km away",
-            category: "Culture",
-            price: 300,
-            description: "Discover local crafts, street art, and hidden gems at the night market.",
-            image: "🎨",
-          },
-          {
-            _id: "6",
-            name: "Hiking Trail Adventure",
-            host: "Nina",
-            hostAvatar: "👩",
-            participants: 7,
-            time: "Sunday, 7 AM",
-            distance: "4.2 km away",
-            category: "Adventure",
-            price: 0,
-            description: "Scenic hiking trail with breathtaking views. Moderate difficulty. Bring water and snacks.",
-            image: "⛰️",
-          },
-        ])
+        setTrips([])
       } finally {
         setLoading(false)
       }
@@ -298,7 +219,10 @@ export default function FinderScreen() {
       {/* Full Screen Map */}
       <div className="absolute inset-0 z-0 bg-background">
         <Map 
-          experiences={filteredTrips}
+          experiences={filteredTrips.filter(trip => {
+            // Only show trips with valid coordinates
+            return trip.coordinates || trip.location?.coordinates || trip.startCoordinates
+          })}
           center={[15.2993, 74.1240]} // Goa, India coordinates
           zoom={13}
           className="w-full h-full"

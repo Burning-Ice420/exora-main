@@ -106,6 +106,8 @@ export default function LabsScreen() {
       ...tripData,
       id: Date.now().toString(),
       itinerary: [],
+      // Include startCoordinates if provided
+      startCoordinates: tripData.startCoordinates || null,
     }
     setTrip(newTrip)
     setShowTripModal(false)
@@ -250,7 +252,8 @@ export default function LabsScreen() {
         budget: trip.budget,
         visibility: trip.visibility,
         description: `Trip with ${savedBlocks.length} activities`,
-        itinerary: trip.itinerary
+        itinerary: trip.itinerary,
+        startCoordinates: trip.startCoordinates || null
       }
       
       const savedTrip = await api.createTrip(tripData)

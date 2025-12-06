@@ -108,51 +108,89 @@ const Map = ({
 
     experiences.forEach((exp) => {
       let lat, lng
-      if (exp.coordinates?.length === 2) {
+      // Check for startCoordinates first (for trips)
+      if (exp.startCoordinates?.length === 2) {
+        [lat, lng] = exp.startCoordinates
+      } else if (exp.coordinates?.length === 2) {
         [lat, lng] = exp.coordinates
       } else if (exp.location?.coordinates?.length === 2) {
-        [lng, lat] = exp.location.coordinates
+        // Handle both [lat, lng] and [lng, lat] formats
+        if (Array.isArray(exp.location.coordinates[0])) {
+          [lng, lat] = exp.location.coordinates
+        } else {
+          const coords = exp.location.coordinates
+          // Try to determine format - if lng > 180 or lat > 90, swap
+          if (Math.abs(coords[0]) > 90 || Math.abs(coords[1]) > 180) {
+            [lng, lat] = coords
+          } else {
+            [lat, lng] = coords
+          }
+        }
       } else {
-        // Generate stable coordinates based on experience ID for demo
-        const seed = (exp.id || exp._id || '').toString().split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-        lat = center[0] + ((seed % 100) / 1000 - 0.05)
-        lng = center[1] + (((seed * 7) % 100) / 1000 - 0.05)
+        // Skip experiences without valid coordinates - don't generate mock points
+        return
       }
 
+      // Get user profile picture or default avatar
+      const profileImage = exp.createdBy?.profileImage || exp.hostAvatar || exp.profileImage
+      const userName = exp.createdBy?.name || exp.host || 'Unknown'
+      const userInitials = userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'
+      
       const customIcon = L.divIcon({
         className: 'custom-marker',
         html: `
           <div class="marker-container" style="
             position: relative;
-            width: 48px;
-            height: 48px;
+            width: 56px;
+            height: 56px;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
           ">
-            <div style="
-              width: 48px;
-              height: 48px;
-              border-radius: 50% 50% 50% 0;
-              transform: rotate(-45deg);
-              background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #4f46e5 100%);
-              border: 3px solid white;
-              box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4), 0 2px 4px rgba(0,0,0,0.2);
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            ">
+            ${profileImage ? `
               <div style="
-                transform: rotate(45deg);
-                font-size: 20px;
-                filter: drop-shadow(0 1px 2px rgba(0,0,0,0.2));
-              ">${exp.image || '🗺️'}</div>
-            </div>
+                width: 48px;
+                height: 48px;
+                border-radius: 50%;
+                border: 3px solid white;
+                box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4), 0 2px 4px rgba(0,0,0,0.2);
+                overflow: hidden;
+                background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #4f46e5 100%);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              ">
+                <img 
+                  src="${profileImage}" 
+                  alt="${userName}"
+                  style="
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                  "
+                  onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:16px\\'>${userInitials}</div>'"
+                />
+              </div>
+            ` : `
+              <div style="
+                width: 48px;
+                height: 48px;
+                border-radius: 50%;
+                background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #4f46e5 100%);
+                border: 3px solid white;
+                box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4), 0 2px 4px rgba(0,0,0,0.2);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: white;
+                font-weight: bold;
+                font-size: 18px;
+              ">${userInitials}</div>
+            `}
             <div style="
               position: absolute;
-              bottom: -8px;
+              bottom: -6px;
               left: 50%;
               transform: translateX(-50%);
               width: 0;
@@ -163,28 +201,89 @@ const Map = ({
             "></div>
           </div>
         `,
-        iconSize: [48, 56],
-        iconAnchor: [24, 56],
-        popupAnchor: [0, -56]
+        iconSize: [56, 64],
+        iconAnchor: [28, 64],
+        popupAnchor: [0, -64]
       })
 
       const marker = L.marker([lat, lng], { icon: customIcon }).addTo(layer)
 
-      // Create hover tooltip with brief details
+      // Create hover tooltip with user profile picture and details
+      const tooltipProfileImage = exp.createdBy?.profileImage || exp.hostAvatar || exp.profileImage
+      const tooltipUserName = exp.createdBy?.name || exp.host || 'Unknown'
+      const tooltipUserInitials = tooltipUserName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'
+      const tripName = exp.name || 'Trip'
+      const location = exp.location || exp.destination || ''
+      
+      // Escape HTML to prevent XSS
+      const escapeHtml = (text) => {
+        if (!text) return ''
+        const map = {
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#039;'
+        }
+        return String(text).replace(/[&<>"']/g, (m) => map[m])
+      }
+      
       const tooltipContent = `
-        <div style="min-width: 180px; font-family: system-ui, -apple-system, sans-serif; padding: 8px;">
-          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-            <span style="font-size: 18px;">${exp.image || '📍'}</span>
-            <div>
-              <h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #1f2937;">${exp.name || 'Trip'}</h3>
-              <p style="margin: 0; font-size: 11px; color: #6b7280;">by ${exp.createdBy?.name || exp.host || 'Unknown'}</p>
+        <div style="min-width: 220px; max-width: 280px; font-family: system-ui, -apple-system, sans-serif; padding: 12px; background: white; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05);">
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
+            ${tooltipProfileImage ? `
+              <div style="
+                width: 48px;
+                height: 48px;
+                border-radius: 50%;
+                border: 2px solid #e5e7eb;
+                overflow: hidden;
+                background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #4f46e5 100%);
+                flex-shrink: 0;
+              ">
+                <img 
+                  src="${escapeHtml(tooltipProfileImage)}" 
+                  alt="${escapeHtml(tooltipUserName)}"
+                  style="
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                    display: block;
+                  "
+                  onerror="this.onerror=null; this.style.display='none'; this.parentElement.innerHTML='<div style=\\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:16px\\'>${escapeHtml(tooltipUserInitials)}</div>'"
+                />
+              </div>
+            ` : `
+              <div style="
+                width: 48px;
+                height: 48px;
+                border-radius: 50%;
+                background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #4f46e5 100%);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: white;
+                font-weight: bold;
+                font-size: 16px;
+                border: 2px solid #e5e7eb;
+                flex-shrink: 0;
+              ">${escapeHtml(tooltipUserInitials)}</div>
+            `}
+            <div style="flex: 1; min-width: 0;">
+              <h3 style="margin: 0 0 4px 0; font-size: 15px; font-weight: 600; color: #1f2937; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;">${escapeHtml(tripName)}</h3>
+              <p style="margin: 0; font-size: 12px; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;">by ${escapeHtml(tooltipUserName)}</p>
             </div>
           </div>
-          <div style="display: flex; gap: 8px; margin-bottom: 6px; font-size: 11px; color: #6b7280;">
-            <span>👥 ${exp.membersInvolved?.length || exp.participants || 0}</span>
-            ${exp.budget !== undefined ? `<span>${exp.budget === 0 ? 'Free' : `₹${exp.budget}`}</span>` : ''}
+          <div style="display: flex; gap: 16px; margin-bottom: 8px; font-size: 12px; color: #6b7280;">
+            <span style="display: flex; align-items: center; gap: 4px;">👥 ${exp.membersInvolved?.length || exp.participants || 0}</span>
+            ${exp.budget !== undefined ? `<span style="display: flex; align-items: center; gap: 4px;">${exp.budget === 0 ? '🆓 Free' : `💰 ₹${exp.budget.toLocaleString()}`}</span>` : ''}
           </div>
-          <div style="font-size: 10px; color: #9ca3af; padding-top: 4px; border-top: 1px solid #e5e7eb;">
+          ${location ? `
+            <div style="font-size: 11px; color: #9ca3af; margin-bottom: 8px; display: flex; align-items: center; gap: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+              📍 ${escapeHtml(location)}
+            </div>
+          ` : ''}
+          <div style="font-size: 10px; color: #9ca3af; padding-top: 8px; border-top: 1px solid #e5e7eb; text-align: center; font-weight: 500;">
             Click for details
           </div>
         </div>
@@ -192,12 +291,12 @@ const Map = ({
 
       marker.bindTooltip(tooltipContent, {
         direction: 'top',
-        offset: [0, -15],
+        offset: [0, -25],
         className: 'custom-tooltip',
         permanent: false,
         interactive: true,
-        sticky: false,
-        opacity: 0.98
+        sticky: true,
+        opacity: 1
       })
 
       // Use refs for callbacks to prevent re-renders
@@ -207,10 +306,16 @@ const Map = ({
         }
       })
 
-      marker.on('mouseover', () => {
+      // Show tooltip on hover
+      marker.on('mouseover', (e) => {
+        marker.openTooltip()
         if (onMarkerHoverRef.current) {
           onMarkerHoverRef.current(exp)
         }
+      })
+
+      marker.on('mouseout', () => {
+        marker.closeTooltip()
       })
     })
   }, [expKey, experiences, center])

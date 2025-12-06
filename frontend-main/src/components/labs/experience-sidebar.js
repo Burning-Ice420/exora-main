@@ -19,17 +19,6 @@ const parseDuration = (duration) => {
   return match ? parseFloat(match[1]) : 2
 }
 
-const SUGGESTED_EXPERIENCES = [
-  { id: "exp_1", name: "Windsurfing at Baga Beach", duration: "2 hours", price: 1200, category: "Adventure" },
-  { id: "exp_2", name: "Cafe La Plage Sunset", duration: "1.5 hours", price: 500, category: "Dining" },
-  { id: "exp_3", name: "Spice Plantation Tour", duration: "3 hours", price: 800, category: "Culture" },
-  { id: "exp_4", name: "Yoga & Meditation", duration: "1 hour", price: 300, category: "Wellness" },
-  { id: "exp_5", name: "Night Market Walk", duration: "2 hours", price: 0, category: "Culture" },
-  { id: "exp_6", name: "Beach Bonfire", duration: "2 hours", price: 400, category: "Social" },
-  { id: "exp_7", name: "Water Sports Package", duration: "4 hours", price: 2000, category: "Adventure" },
-  { id: "exp_8", name: "Photography Tour", duration: "3 hours", price: 600, category: "Creative" },
-]
-
 export default function ExperienceSidebar({ onAddExperience, trip }) {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState(null)
@@ -39,6 +28,15 @@ export default function ExperienceSidebar({ onAddExperience, trip }) {
   const [selectedDay, setSelectedDay] = useState("")
   const [selectedHour, setSelectedHour] = useState(10)
   const [selectedMinute, setSelectedMinute] = useState(0)
+  const [experiences, setExperiences] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [showCustomModal, setShowCustomModal] = useState(false)
+  const [customExperience, setCustomExperience] = useState({
+    name: "",
+    duration: "2 hours",
+    price: 0,
+    category: "Activity"
+  })
 
   
   // Create custom drag image (transparent to hide browser default)
@@ -56,9 +54,55 @@ export default function ExperienceSidebar({ onAddExperience, trip }) {
     return img
   }
 
-  const categories = Array.from(new Set(SUGGESTED_EXPERIENCES.map((exp) => exp.category)))
+  // Fetch experiences from API
+  useEffect(() => {
+    const fetchExperiences = async () => {
+      try {
+        setLoading(true)
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
+        const token = document.cookie.split(';').find(c => c.trim().startsWith('authToken='))?.split('=')[1]
+        
+        const params = new URLSearchParams({
+          limit: '50',
+          page: '1',
+          ...(selectedCategory && selectedCategory !== 'all' && { category: selectedCategory })
+        })
 
-  const filteredExperiences = SUGGESTED_EXPERIENCES.filter((exp) => {
+        const response = await fetch(`${API_BASE_URL}/api/experiences?${params}`, {
+          headers: {
+            'Authorization': token ? `Bearer ${token}` : '',
+          },
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          // Transform experiences to match expected format
+          const transformedExperiences = (data.experiences || []).map(exp => ({
+            id: exp.id,
+            name: exp.name,
+            duration: exp.duration || '2 hours',
+            price: exp.price || 0,
+            category: exp.category || 'Activity'
+          }))
+          setExperiences(transformedExperiences)
+        } else {
+          console.error('Failed to fetch experiences')
+          setExperiences([])
+        }
+      } catch (error) {
+        console.error('Error fetching experiences:', error)
+        setExperiences([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchExperiences()
+  }, [selectedCategory])
+
+  const categories = Array.from(new Set(experiences.map((exp) => exp.category)))
+
+  const filteredExperiences = experiences.filter((exp) => {
     const matchesSearch = exp.name.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesCategory = !selectedCategory || exp.category === selectedCategory
     return matchesSearch && matchesCategory
@@ -228,14 +272,26 @@ export default function ExperienceSidebar({ onAddExperience, trip }) {
       {/* Experiences List */}
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
         <AnimatePresence>
-          {filteredExperiences.length === 0 ? (
+          {loading ? (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="text-center py-8"
             >
-              <p className="text-sm text-muted-foreground">No experiences found</p>
+              <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-sm text-muted-foreground">Loading experiences...</p>
+            </motion.div>
+          ) : filteredExperiences.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="text-center py-8"
+            >
+              <p className="text-sm text-muted-foreground">
+                {searchQuery ? 'No experiences match your search' : 'No experiences available. Check back later!'}
+              </p>
             </motion.div>
           ) : (
             filteredExperiences.map((exp, idx) => (
@@ -312,11 +368,197 @@ export default function ExperienceSidebar({ onAddExperience, trip }) {
       <motion.button
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
+        onClick={() => setShowCustomModal(true)}
         className="m-6 glass-effect rounded-lg p-4 flex items-center justify-center gap-2 hover:bg-white/10 smooth-transition text-primary font-semibold border border-border"
       >
         <Plus size={18} />
         Add Custom
       </motion.button>
+
+      {/* Custom Experience Modal */}
+      <AnimatePresence>
+        {showCustomModal && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowCustomModal(false)}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
+            />
+            
+            {/* Modal */}
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border rounded-t-2xl shadow-2xl"
+              style={{ width: "70%", left: "15%", maxHeight: "85vh" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Drag Handle */}
+              <div className="flex justify-center pt-3 pb-2">
+                <div className="w-12 h-1.5 bg-muted-foreground/30 rounded-full" />
+              </div>
+              
+              {/* Modal Content */}
+              <div className="px-6 pb-6 overflow-y-auto" style={{ maxHeight: "calc(85vh - 20px)" }}>
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">Add Custom Experience</h3>
+                    <p className="text-sm text-muted-foreground mt-1">Create your own activity</p>
+                  </div>
+                  <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => setShowCustomModal(false)}
+                    className="p-1.5 rounded-lg hover:bg-muted/50 smooth-transition"
+                  >
+                    <X size={18} className="text-muted-foreground" />
+                  </motion.button>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Name */}
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-2 block">
+                      Experience Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={customExperience.name}
+                      onChange={(e) => setCustomExperience({ ...customExperience, name: e.target.value })}
+                      placeholder="e.g., Private Beach Tour"
+                      className="w-full px-4 py-2 rounded-lg bg-white/5 border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+
+                  {/* Duration */}
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-2 block">
+                      Duration
+                    </label>
+                    <input
+                      type="text"
+                      value={customExperience.duration}
+                      onChange={(e) => setCustomExperience({ ...customExperience, duration: e.target.value })}
+                      placeholder="e.g., 2 hours, 3.5 hours"
+                      className="w-full px-4 py-2 rounded-lg bg-white/5 border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+
+                  {/* Price */}
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-2 block">
+                      Price (₹)
+                    </label>
+                    <input
+                      type="number"
+                      value={customExperience.price}
+                      onChange={(e) => setCustomExperience({ ...customExperience, price: parseFloat(e.target.value) || 0 })}
+                      placeholder="0"
+                      min="0"
+                      step="0.01"
+                      className="w-full px-4 py-2 rounded-lg bg-white/5 border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+
+                  {/* Category */}
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-2 block">
+                      Category
+                    </label>
+                    <select
+                      value={customExperience.category}
+                      onChange={(e) => setCustomExperience({ ...customExperience, category: e.target.value })}
+                      className="w-full px-4 py-2 rounded-lg bg-white/5 border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="Activity">Activity</option>
+                      <option value="Adventure">Adventure</option>
+                      <option value="Culture">Culture</option>
+                      <option value="Food">Food</option>
+                      <option value="Wellness">Wellness</option>
+                      <option value="Beach">Beach</option>
+                      <option value="Shopping">Shopping</option>
+                      <option value="Entertainment">Entertainment</option>
+                    </select>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-2 pt-4">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        setShowCustomModal(false)
+                        setCustomExperience({ name: "", duration: "2 hours", price: 0, category: "Activity" })
+                      }}
+                      className="flex-1 px-4 py-2 rounded-lg border border-border bg-white/5 text-foreground hover:bg-white/10 smooth-transition"
+                    >
+                      Cancel
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        if (!customExperience.name.trim()) {
+                          alert("Please enter an experience name")
+                          return
+                        }
+                        
+                        const customExp = {
+                          id: generateUniqueId(),
+                          name: customExperience.name,
+                          duration: customExperience.duration,
+                          price: customExperience.price,
+                          category: customExperience.category
+                        }
+                        
+                        // Add to timeline with default time
+                        const dates = getAvailableDates()
+                        if (dates.length > 0) {
+                          const duration = parseDuration(customExp.duration || "2 hours")
+                          const defaultStartTime = 10
+                          const newItem = {
+                            id: generateUniqueId(),
+                            day: dates[0],
+                            startTime: defaultStartTime,
+                            endTime: defaultStartTime + duration,
+                            timeSlot: "morning",
+                            experienceId: customExp.id,
+                            experienceName: customExp.name,
+                            price: customExp.price,
+                            duration: customExp.duration,
+                            category: customExp.category
+                          }
+                          onAddExperience(newItem)
+                        } else {
+                          // If no trip dates, just add with basic info
+                          onAddExperience({
+                            ...customExp,
+                            day: trip?.startDate || new Date().toISOString().split('T')[0],
+                            startTime: 10,
+                            endTime: 12,
+                            timeSlot: "morning"
+                          })
+                        }
+                        
+                        setShowCustomModal(false)
+                        setCustomExperience({ name: "", duration: "2 hours", price: 0, category: "Activity" })
+                      }}
+                      className="flex-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 smooth-transition font-semibold"
+                    >
+                      Add to Timeline
+                    </motion.button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Time and Day Selection Modal - Draggable Bottom Sheet */}
       <AnimatePresence>
