@@ -379,6 +379,14 @@ class ApiClient {
     return await this.request('/api/trip-requests/my-chat-rooms')
   }
 
+  // Waitlist endpoints
+  async addToWaitlist(data) {
+    return await this.request('/api/waitlisters', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
   async deleteChatRoom(chatRoomId) {
     return await this.request(`/api/trip-requests/chat-rooms/${chatRoomId}`, {
       method: 'DELETE'
