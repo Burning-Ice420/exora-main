@@ -163,7 +163,13 @@ export default function SignupForm() {
       setSubmitError("")
     } catch (error) {
       setIsSubmitting(false)
-      setSubmitError(error.message || "Failed to join waitlist. Please try again.")
+      if (error?.status === 409) {
+        setSubmitError("You're already on the waitlist.")
+      } else if (error?.message === 'Failed to fetch') {
+        setSubmitError("Unable to reach server. Please try again.")
+      } else {
+        setSubmitError(error.message || "Failed to join waitlist. Please try again.")
+      }
     }
   }
 

@@ -1,9 +1,62 @@
 // API layer for all backend communication
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.exora.in'
 
+class ApiError extends Error {
+  constructor(message, status, data) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+    this.data = data
+  }
+}
+
 class ApiClient {
   constructor() {
     this.baseURL = API_BASE_URL
+  }
+
+  // Same-origin request (useful for Next.js API routes to avoid CORS)
+  async requestSameOrigin(endpoint, options = {}) {
+    const url = endpoint
+    const config = {
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+      ...options,
+    }
+
+    // Add auth token if available
+    if (typeof window !== 'undefined') {
+      const token = this.getToken()
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`
+      }
+    }
+
+    try {
+      const response = await fetch(url, config)
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          this.removeToken()
+          throw new ApiError('Authentication failed. Please login again.', 401)
+        }
+
+        const errorData = await response.json().catch(() => ({}))
+        throw new ApiError(
+          errorData.message || `HTTP error! status: ${response.status}`,
+          response.status,
+          errorData
+        )
+      }
+
+      const data = await response.json()
+      return data
+    } catch (error) {
+      console.error('API request failed:', error)
+      throw error
+    }
   }
 
   // Generic request method
@@ -32,11 +85,15 @@ class ApiClient {
         // Handle 401 Unauthorized specifically
         if (response.status === 401) {
           this.removeToken()
-          throw new Error('Authentication failed. Please login again.')
+          throw new ApiError('Authentication failed. Please login again.', 401)
         }
         
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`)
+        throw new ApiError(
+          errorData.message || `HTTP error! status: ${response.status}`,
+          response.status,
+          errorData
+        )
       }
 
       const data = await response.json()
@@ -381,7 +438,8 @@ class ApiClient {
 
   // Waitlist endpoints
   async addToWaitlist(data) {
-    return await this.request('/api/waitlisters', {
+    // Use Next.js same-origin proxy to avoid browser CORS "Failed to fetch"
+    return await this.requestSameOrigin('/api/waitlisters', {
       method: 'POST',
       body: JSON.stringify(data),
     })
