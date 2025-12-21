@@ -23,7 +23,7 @@ export default function ActivityCard({ activity }) {
     return `₹${price.toLocaleString("en-IN")}`
   }
 
-  const imageUrl = activity.images?.[0]?.url || "/logo.png"
+  const imageUrl = activity.images?.[0]?.url || "/logos.png"
   const activitySlug = activity.slug || activity._id
 
   return (

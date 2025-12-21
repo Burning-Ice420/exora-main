@@ -66,7 +66,7 @@ export default function Hero({ onGetEarlyAccess }) {
           <a href="#" className="block">
             <div className="w-24 h-24 sm:w-32 sm:h-32">
               <Image
-                src="/logo.png"
+                src="/logos.png"
                 alt="Logo"
                 width={128}
                 height={128}
