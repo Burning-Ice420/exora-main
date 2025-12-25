@@ -7,6 +7,7 @@ import Image from "next/image"
 import { Calendar, Clock, MapPin, Users, Star, Check, X, User } from "lucide-react"
 import { Toaster, toast } from "sonner"
 import { initiateRazorpayCheckout } from "@/lib/razorpay"
+import ThankYouModal from "@/components/ui/thank-you-modal"
 
 export default function ActivityDetailPage() {
   const params = useParams()
@@ -14,12 +15,31 @@ export default function ActivityDetailPage() {
   const [loading, setLoading] = useState(true)
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [showCheckout, setShowCheckout] = useState(false)
+  const [thankYouOpen, setThankYouOpen] = useState(false)
+  const [thankYouData, setThankYouData] = useState({
+    passId: "",
+    attendeeEmail: "",
+    activityName: "",
+  })
   const [attendeeInfo, setAttendeeInfo] = useState({
     name: "",
     email: "",
     phone: "",
   })
   const [isProcessing, setIsProcessing] = useState(false)
+
+  const copyPassId = async () => {
+    const passId = thankYouData.passId
+    if (!passId) return
+
+    try {
+      await navigator.clipboard.writeText(passId)
+      toast.success("Pass ID copied")
+    } catch {
+      // Fallback: still show the pass id in UI, but notify failure
+      toast.error("Could not copy. Please copy manually.")
+    }
+  }
 
   useEffect(() => {
     const fetchActivity = async () => {
@@ -76,11 +96,13 @@ export default function ActivityDetailPage() {
         attendeePhone: attendeeInfo.phone,
         onSuccess: async (paymentResponse, verifyData) => {
           setIsProcessing(false)
-          toast.success(
-            `Booking confirmed! Check your email for your pass. Pass ID: ${verifyData.passId}`,
-            { duration: 8000 }
-          )
           setShowCheckout(false)
+          setThankYouData({
+            passId: verifyData?.passId || "",
+            attendeeEmail: attendeeInfo.email || "",
+            activityName: activity.name || "",
+          })
+          setThankYouOpen(true)
           setAttendeeInfo({ name: "", email: "", phone: "" })
         },
         onFailure: (error) => {
@@ -120,6 +142,14 @@ export default function ActivityDetailPage() {
   return (
     <main className="min-h-screen bg-white">
       <Toaster position="top-center" richColors />
+      <ThankYouModal
+        isOpen={thankYouOpen}
+        onClose={() => setThankYouOpen(false)}
+        activityName={thankYouData.activityName}
+        attendeeEmail={thankYouData.attendeeEmail}
+        passId={thankYouData.passId}
+        onCopyPassId={copyPassId}
+      />
 
       {/* Hero Image Section */}
       <div className="relative w-full h-[60vh] md:h-[70vh] overflow-hidden bg-black/5">

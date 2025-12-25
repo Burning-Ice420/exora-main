@@ -2,7 +2,6 @@
 
 import { motion } from "framer-motion"
 import ActivityCard from "./ActivityCard"
-import { useState } from "react"
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -14,13 +13,15 @@ const containerVariants = {
   },
 }
 
-export default function ActivityGrid({ activities }) {
+export default function ActivityGrid({ activities, isDark = false }) {
 
   if (!activities || activities.length === 0) {
     return (
       <div className="text-center py-20">
-        <p className="text-black/50 text-lg">No activities found</p>
-        <p className="text-black/30 text-sm mt-2">Check back later for new experiences</p>
+        <p className={isDark ? "text-white/70 text-lg" : "text-black/60 text-lg"}>No activities found</p>
+        <p className={isDark ? "text-white/45 text-sm mt-2" : "text-black/35 text-sm mt-2"}>
+          Check back later for new experiences
+        </p>
       </div>
     )
   }
@@ -36,6 +37,7 @@ export default function ActivityGrid({ activities }) {
         <ActivityCard
           key={activity._id || activity.id || index}
           activity={activity}
+          isDark={isDark}
         />
       ))}
     </motion.div>

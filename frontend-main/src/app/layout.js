@@ -10,7 +10,7 @@ const inter = Inter({
 });
 
 export const metadata = {
-  title: "exora - Travel Together",
+  title: "exora",
   description: "Discover, plan, and share amazing travel experiences with exora",
 };
 
