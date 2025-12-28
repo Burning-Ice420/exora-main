@@ -176,48 +176,30 @@ export default function TripRequestsManager({ tripId, isOpen, onClose, onAccept 
                     className="bg-card border border-border rounded-lg p-4"
                   >
                     <div className="flex items-start gap-4">
-                      {/* User Avatar - Clickable */}
-                      <div 
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          if (request.requesterId._id) {
-                            if (request.requesterId._id === user?._id) {
-                              router.push('/profile')
-                            } else {
-                              router.push(`/user/${request.requesterId._id}`)
-                            }
-                            onClose()
-                          }
-                        }}
-                        className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/40 to-primary/20 border-2 border-primary flex items-center justify-center text-lg overflow-hidden cursor-pointer hover:scale-110 hover:shadow-lg hover:shadow-primary/30 smooth-transition"
-                      >
-                        {request.requesterId.profileImage?.secureUrl || request.requesterId.profileImage?.url ? (
-                          <img
-                            src={request.requesterId.profileImage.secureUrl || request.requesterId.profileImage.url}
-                            alt={request.requesterId.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          "👤"
-                        )}
+                      {/* Privacy-first: Show only initials + spells */}
+                      <div className="w-12 h-12 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center flex-shrink-0">
+                        <span className="text-sm font-semibold text-primary">
+                          {request.requester?.initials || 
+                           (request.requesterId?.name 
+                             ? request.requesterId.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+                             : 'U')}
+                        </span>
                       </div>
-
-                      {/* Request Details - Clickable */}
-                      <div 
-                        className="flex-1 min-w-0 cursor-pointer"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          if (request.requesterId._id) {
-                            if (request.requesterId._id === user?._id) {
-                              router.push('/profile')
-                            } else {
-                              router.push(`/user/${request.requesterId._id}`)
-                            }
-                            onClose()
-                          }
-                        }}
-                      >
-                        <h4 className="font-medium text-foreground hover:text-primary smooth-transition">{request.requesterId.name}</h4>
+                      {/* Request Details */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-semibold text-foreground">
+                            {request.requester?.initials || 
+                             (request.requesterId?.name 
+                               ? request.requesterId.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+                               : 'U')}
+                          </h4>
+                          {request.requester?.exoraSpells !== undefined && (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                              ✨ {request.requester.exoraSpells} spells
+                            </span>
+                          )}
+                        </div>
                         <p className="text-sm text-muted-foreground mb-2">
                           Wants to join your trip
                         </p>

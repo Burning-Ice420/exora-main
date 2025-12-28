@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Plus, MapPin, Calendar, X, Save, Share2, Download } from "lucide-react"
+import { Plus, MapPin, Calendar, X, Save, Share2, Download, Plane } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import TripDetailsModal from "@/components/labs/trip-details-modal"
 import TimelineCanvas from "@/components/labs/timeline-canvas"
@@ -18,8 +18,11 @@ export default function LabsScreen() {
   const [selectedExperience, setSelectedExperience] = useState(null)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [posting, setPosting] = useState(false)
   const [savedTrips, setSavedTrips] = useState([])
   const [savedBlocks, setSavedBlocks] = useState([])
+  const [showPostModal, setShowPostModal] = useState(false)
+  const [tripToPost, setTripToPost] = useState(null)
 
   // Helper to get unique ID from item (handles both id and _id)
   const getItemId = (item) => item.id || item._id
@@ -282,6 +285,66 @@ export default function LabsScreen() {
     }
   }
 
+  const handlePostTripToFeed = async (tripToPostData) => {
+    try {
+      setPosting(true)
+      
+      // If trip is not saved yet, save it first
+      let tripId = tripToPostData._id || tripToPostData.id
+      
+      if (!tripId) {
+        // Trip not saved yet, save it first
+        const tripData = {
+          name: tripToPostData.name,
+          location: tripToPostData.location,
+          startDate: tripToPostData.startDate,
+          endDate: tripToPostData.endDate,
+          budget: tripToPostData.budget || 0,
+          visibility: 'public',
+          description: tripToPostData.description || `Join me on this trip to ${tripToPostData.location}!`,
+          itinerary: tripToPostData.itinerary || [],
+          startCoordinates: tripToPostData.startCoordinates || null
+        }
+        
+        const savedTrip = await api.createTrip(tripData)
+        tripId = savedTrip.trip?._id || savedTrip.trip?.id || savedTrip._id || savedTrip.id
+      }
+      
+      // Calculate capacity (default to 10 if not specified)
+      const capacity = tripToPostData.capacity || 10
+      
+      // Create trip post
+      const postData = {
+        text: `Join me on ${tripToPostData.name}! ${tripToPostData.description || `Exploring ${tripToPostData.location} from ${new Date(tripToPostData.startDate).toLocaleDateString()} to ${new Date(tripToPostData.endDate).toLocaleDateString()}.`}`,
+        locationTag: tripToPostData.location,
+        images: [],
+        type: 'Trip',
+        tripPost: {
+          tripId: tripId,
+          date: new Date(tripToPostData.startDate),
+          capacity: capacity,
+          location: tripToPostData.location,
+          coordinates: tripToPostData.startCoordinates || null,
+          joinable: true
+        }
+      }
+      
+      const response = await api.createTripPost(postData)
+      
+      if (response.success) {
+        // Navigate to feed to see the post
+        router.push('/feed')
+        setShowPostModal(false)
+        setTripToPost(null)
+      }
+    } catch (error) {
+      console.error('Failed to post trip to feed:', error)
+      alert('Failed to post trip to feed. Please try again.')
+    } finally {
+      setPosting(false)
+    }
+  }
+
   if (!trip) {
     return (
       <div className="w-full h-full bg-background overflow-y-auto scrollbar-hide">
@@ -429,6 +492,20 @@ export default function LabsScreen() {
                       {savedTrip.visibility === 'public' ? '🌍 Public' : '🔒 Private'}
                     </span>
                   </div>
+                  
+                  {/* Post to Feed Button */}
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setTripToPost(savedTrip)
+                      setShowPostModal(true)
+                    }}
+                    size="sm"
+                    className="w-full mt-3 bg-primary hover:bg-primary/90 text-primary-foreground text-xs"
+                  >
+                    <Plane size={14} className="mr-2" />
+                    Post to Feed
+                  </Button>
                 </motion.div>
               ))}
             </div>
@@ -606,11 +683,42 @@ export default function LabsScreen() {
           )}
         </Button>
         <Button
+          onClick={() => {
+            // First save the trip if not saved, then post
+            if (!trip._id && !trip.id) {
+              // Need to save first
+              handleSaveTrip().then(() => {
+                // After saving, get the saved trip and post it
+                setTimeout(async () => {
+                  const tripsResponse = await api.getTrips()
+                  const trips = tripsResponse?.trips || tripsResponse || []
+                  const savedTrip = trips.find(t => t.name === trip.name && t.location === trip.location)
+                  if (savedTrip) {
+                    setTripToPost(savedTrip)
+                    setShowPostModal(true)
+                  }
+                }, 1000)
+              })
+            } else {
+              setTripToPost(trip)
+              setShowPostModal(true)
+            }
+          }}
+          disabled={posting || saving}
           variant="outline"
-          className="border-border hover:bg-muted/50 text-foreground font-semibold py-3 rounded-lg bg-transparent text-sm"
+          className="border-border hover:bg-muted/50 text-foreground font-semibold py-3 rounded-lg bg-transparent text-sm disabled:opacity-50"
         >
-          <Share2 size={16} className="mr-2" />
-          Share
+          {posting ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-foreground mr-2"></div>
+              Posting...
+            </>
+          ) : (
+            <>
+              <Plane size={16} className="mr-2" />
+              Post to Feed
+            </>
+          )}
         </Button>
         <Button
           variant="outline"
@@ -700,6 +808,107 @@ export default function LabsScreen() {
               >
                 Remove from Itinerary
               </motion.button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Post Trip to Feed Modal */}
+      <AnimatePresence>
+        {showPostModal && tripToPost && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowPostModal(false)}
+            className="fixed inset-0 bg-foreground/10 backdrop-blur-md z-50 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-background rounded-xl border border-border shadow-xl w-full max-w-md p-6 space-y-4"
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">Post Trip to Feed</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Share your trip "{tripToPost.name}" so others can join
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    setShowPostModal(false)
+                    setTripToPost(null)
+                  }}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <X size={18} />
+                </Button>
+              </div>
+
+              <div className="space-y-3">
+                <div className="p-3 bg-muted/50 rounded-lg border border-border">
+                  <div className="flex items-center gap-2 text-sm text-foreground mb-2">
+                    <MapPin size={14} />
+                    <span className="font-medium">{tripToPost.location}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Calendar size={12} />
+                    <span>
+                      {new Date(tripToPost.startDate).toLocaleDateString()} - {new Date(tripToPost.endDate).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">Capacity (how many can join?)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="50"
+                    defaultValue={10}
+                    onChange={(e) => {
+                      setTripToPost({ ...tripToPost, capacity: parseInt(e.target.value) || 10 })
+                    }}
+                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowPostModal(false)
+                    setTripToPost(null)
+                  }}
+                  className="flex-1"
+                  disabled={posting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => handlePostTripToFeed(tripToPost)}
+                  disabled={posting}
+                  className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
+                >
+                  {posting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Posting...
+                    </>
+                  ) : (
+                    <>
+                      <Plane size={16} className="mr-2" />
+                      Post to Feed
+                    </>
+                  )}
+                </Button>
+              </div>
             </motion.div>
           </motion.div>
         )}

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
@@ -44,6 +45,7 @@ export default function SignupPage() {
     email: '',
     password: '',
     confirmPassword: '',
+    acceptedTerms: false,
     
     // Profile
     dateOfBirth: '',
@@ -91,9 +93,23 @@ export default function SignupPage() {
     setLoading(true)
     setError('')
 
+    // Validate passwords match
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match')
+      setLoading(false)
+      return
+    }
+
+    // Validate terms acceptance
+    if (!formData.acceptedTerms) {
+      setError('You must accept the Terms and Conditions to create an account')
+      setLoading(false)
+      return
+    }
+
     try {
       // Prepare data for backend - send age instead of dateOfBirth, include profilePhoto
-      const { dateOfBirth, ...submitData } = formData
+      const { dateOfBirth, acceptedTerms, confirmPassword, ...submitData } = formData
       
       // Add profile photo to submit data if available
       if (formData.profilePhoto) {
@@ -137,10 +153,10 @@ export default function SignupPage() {
   }
 
   const handleChange = (e) => {
-    const { name, value } = e.target
+    const { name, value, type, checked } = e.target
     setFormData({
       ...formData,
-      [name]: value,
+      [name]: type === 'checkbox' ? checked : value,
       // Auto-calculate age when dateOfBirth changes
       ...(name === 'dateOfBirth' && { age: calculateAge(value) })
     })
@@ -330,6 +346,35 @@ export default function SignupPage() {
                     required
                   />
                 </div>
+                {formData.password && formData.confirmPassword && formData.password !== formData.confirmPassword && (
+                  <p className="text-sm text-destructive mt-1">Passwords do not match</p>
+                )}
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    name="acceptedTerms"
+                    checked={formData.acceptedTerms}
+                    onChange={handleChange}
+                    className="mt-1 w-4 h-4 rounded border-border text-primary focus:ring-2 focus:ring-primary cursor-pointer"
+                    required
+                  />
+                  <span className="text-sm text-foreground leading-relaxed">
+                    I agree to the{' '}
+                    <Link
+                      href="/terms"
+                      target="_blank"
+                      className="text-primary hover:text-primary/80 underline font-medium"
+                    >
+                      Terms and Conditions
+                    </Link>
+                  </span>
+                </label>
+                {!formData.acceptedTerms && formData.name && formData.email && formData.password && formData.confirmPassword && (
+                  <p className="text-sm text-destructive ml-7">You must accept the Terms and Conditions to continue</p>
+                )}
               </div>
             </div>
           </div>

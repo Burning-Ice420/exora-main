@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
@@ -10,6 +11,7 @@ export default function SignupForm({ onSubmit, onBack }) {
     fullName: "",
     email: "",
     password: "",
+    acceptedTerms: false,
   })
   const [passwordErrors, setPasswordErrors] = useState({
     hasUpperCase: false,
@@ -30,11 +32,14 @@ export default function SignupForm({ onSubmit, onBack }) {
   }
 
   const isPasswordValid = formData.password && validatePassword(formData.password)
-  const isValid = formData.fullName && formData.email && isPasswordValid
+  const isValid = formData.fullName && formData.email && isPasswordValid && formData.acceptedTerms
 
   const handleChange = (e) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
+    const { name, value, type, checked } = e.target
+    setFormData((prev) => ({ 
+      ...prev, 
+      [name]: type === 'checkbox' ? checked : value 
+    }))
     if (name === "password") {
       validatePassword(value)
     }
@@ -148,8 +153,32 @@ export default function SignupForm({ onSubmit, onBack }) {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.25 }}
-          className="pt-4"
+          className="space-y-4 pt-2"
         >
+          <label className="flex items-start gap-3 cursor-pointer group">
+            <input
+              type="checkbox"
+              name="acceptedTerms"
+              checked={formData.acceptedTerms}
+              onChange={handleChange}
+              className="mt-1 w-4 h-4 rounded border-border text-primary focus:ring-2 focus:ring-primary cursor-pointer"
+              required
+            />
+            <span className="text-sm text-foreground leading-relaxed">
+              I agree to the{' '}
+              <Link
+                href="/terms"
+                target="_blank"
+                className="text-primary hover:text-primary/80 underline font-medium"
+              >
+                Terms and Conditions
+              </Link>
+            </span>
+          </label>
+          {!formData.acceptedTerms && formData.fullName && formData.email && formData.password && (
+            <p className="text-sm text-destructive ml-7">You must accept the Terms and Conditions to continue</p>
+          )}
+          
           <Button
             type="submit"
             disabled={!isValid}

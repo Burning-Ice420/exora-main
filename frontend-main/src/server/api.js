@@ -216,6 +216,10 @@ class ApiClient {
     return await this.request('/api/trips/public')
   }
 
+  async getTripById(tripId) {
+    return await this.request(`/api/trips/${tripId}`)
+  }
+
   async createTrip(tripData) {
     return await this.request('/api/trips', {
       method: 'POST',
@@ -239,6 +243,17 @@ class ApiClient {
     return await this.request('/api/feed', {
       method: 'POST',
       body: JSON.stringify(postData),
+    })
+  }
+
+  async createTripPost(postData) {
+    // Trip posts are also created via feed endpoint but with type: 'Trip'
+    return await this.request('/api/feed', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...postData,
+        type: 'Trip'
+      }),
     })
   }
 
@@ -400,8 +415,32 @@ class ApiClient {
     })
   }
 
+  // Attendance (host only)
+  async getTripAttendance(tripId) {
+    return await this.request(`/api/trips/${tripId}/attendance`)
+  }
+
+  async markAttendance(tripId, userId, status) {
+    return await this.request(`/api/trips/${tripId}/attendance`, {
+      method: 'POST',
+      body: JSON.stringify({ userId, status })
+    })
+  }
+
   async getItineraryParticipants(tripId) {
     return await this.request(`/api/trip-requests/${tripId}/itinerary-participants`)
+  }
+
+  // Attendance (host only)
+  async getTripAttendance(tripId) {
+    return await this.request(`/api/trips/${tripId}/attendance`)
+  }
+
+  async markAttendance(tripId, userId, status) {
+    return await this.request(`/api/trips/${tripId}/attendance`, {
+      method: 'POST',
+      body: JSON.stringify({ userId, status })
+    })
   }
 
   async checkUserRequest(tripId) {

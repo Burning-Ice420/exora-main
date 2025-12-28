@@ -1,38 +1,90 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Heart, MessageCircle, Share2, Bookmark, Plus, Search, X, Loader2, Image as ImageIcon } from "lucide-react"
+import { Heart, MessageCircle, Share2, Bookmark, Plus, Search, X, Loader2, Image as ImageIcon, Calendar, MapPin, Users, Plane, Settings, Eye } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { motion, AnimatePresence } from "framer-motion"
 import RecommendationsSidebar from "./recommendations-sidebar"
 import RightSidebar from "./right-sidebar"
 import ImageUpload from "@/components/ui/image-upload"
+import TripJoinModal from "@/components/ui/trip-join-modal"
 import api from "@/server/api"
 import { useAuth } from "@/contexts/AuthContext"
 import { useRouter } from "next/navigation"
+import { useToast } from "@/components/ui/toast"
 
 export default function FeedScreen() {
   const { user } = useAuth()
   const router = useRouter()
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [postType, setPostType] = useState('Post') // 'Post' or 'Trip'
+  const [userTrips, setUserTrips] = useState([])
+  const [selectedTrip, setSelectedTrip] = useState(null)
+  const [loadingTrips, setLoadingTrips] = useState(false)
   const [createForm, setCreateForm] = useState({
     caption: '',
     location: '',
-    images: []
+    images: [],
+    // Trip post fields
+    tripDate: '',
+    tripCapacity: '',
+    tripLocation: '',
+    tripCoordinates: null
   })
   const [selectedImages, setSelectedImages] = useState([])
-
   const [posts, setPosts] = useState([])
   const [showComments, setShowComments] = useState({})
   const [newComment, setNewComment] = useState('')
   const [commentingPost, setCommentingPost] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [showJoinModal, setShowJoinModal] = useState(false)
+  const [selectedTripForJoin, setSelectedTripForJoin] = useState(null)
+  const [loadingTrip, setLoadingTrip] = useState(false)
+  const { success, error } = useToast()
 
   // Load feed posts from backend
   useEffect(() => {
     loadFeedPosts()
   }, [])
+
+  // Load user's trips when modal opens and trip type is selected
+  useEffect(() => {
+    if (showCreateModal && postType === 'Trip') {
+      loadUserTrips()
+    }
+  }, [showCreateModal, postType])
+
+  const loadUserTrips = async () => {
+    try {
+      setLoadingTrips(true)
+      const response = await api.getTrips()
+      const trips = response?.trips || response || []
+      setUserTrips(trips)
+    } catch (error) {
+      console.error('Failed to load trips:', error)
+      setUserTrips([])
+    } finally {
+      setLoadingTrips(false)
+    }
+  }
+
+  const handleTripSelect = (tripId) => {
+    const trip = userTrips.find(t => (t._id || t.id) === tripId)
+    if (trip) {
+      setSelectedTrip(trip)
+      // Pre-fill form with trip data
+      setCreateForm({
+        ...createForm,
+        caption: createForm.caption || `Join me on ${trip.name}! Exploring ${trip.location || trip.destination} from ${new Date(trip.startDate).toLocaleDateString()} to ${new Date(trip.endDate).toLocaleDateString()}.`,
+        location: trip.location || trip.destination || '',
+        tripDate: trip.startDate ? new Date(trip.startDate).toISOString().split('T')[0] : '',
+        tripCapacity: '10', // Default capacity
+        tripLocation: trip.location || trip.destination || '',
+        tripCoordinates: trip.startCoordinates || null
+      })
+    }
+  }
 
   const loadFeedPosts = async () => {
     try {
@@ -148,24 +200,62 @@ export default function FeedScreen() {
       return
     }
 
+    // Validate trip post fields
+    if (postType === 'Trip') {
+      if (!selectedTrip) {
+        alert('Please select a trip to post')
+        return
+      }
+      if (!createForm.tripCapacity) {
+        alert('Please set the capacity (how many people can join)')
+        return
+      }
+    }
+
     try {
       setUploading(true)
       
       const postData = {
         text: createForm.caption,
-        locationTag: createForm.location,
-        images: createForm.images
+        locationTag: createForm.location || createForm.tripLocation,
+        images: createForm.images,
+        type: postType
       }
 
-      const response = await api.createFeedPost(postData)
+      // Add trip post specific fields
+      if (postType === 'Trip' && selectedTrip) {
+        const tripId = selectedTrip._id || selectedTrip.id
+        postData.tripPost = {
+          tripId: tripId,
+          date: new Date(selectedTrip.startDate),
+          capacity: parseInt(createForm.tripCapacity) || 10,
+          location: selectedTrip.location || selectedTrip.destination,
+          coordinates: selectedTrip.startCoordinates || createForm.tripCoordinates || null,
+          joinable: true
+        }
+      }
+
+      const response = postType === 'Trip' 
+        ? await api.createTripPost(postData)
+        : await api.createFeedPost(postData)
       
       if (response.success) {
         // Reload feed posts to get the new post
         await loadFeedPosts()
         
         // Reset form
-        setCreateForm({ caption: '', location: '', images: [] })
+        setCreateForm({ 
+          caption: '', 
+          location: '', 
+          images: [],
+          tripDate: '',
+          tripCapacity: '',
+          tripLocation: '',
+          tripCoordinates: null
+        })
         setSelectedImages([])
+        setSelectedTrip(null)
+        setPostType('Post')
         setShowCreateModal(false)
       }
     } catch (error) {
@@ -292,6 +382,123 @@ export default function FeedScreen() {
                 <span className="text-lg">⋯</span>
               </Button>
             </div>
+
+            {/* Trip Post Details */}
+            {post.type === 'Trip' && post.tripPost && (
+              <div className="p-3 lg:p-4 bg-primary/5 border-b border-border/50">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-primary/20">
+                    <Plane size={20} className="text-primary" />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-4 text-sm">
+                      <div className="flex items-center gap-1.5 text-foreground">
+                        <Calendar size={14} className="text-muted-foreground" />
+                        <span>{new Date(post.tripPost.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-foreground">
+                        <Users size={14} className="text-muted-foreground" />
+                        <span>{post.tripPost.capacity} spots</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-foreground">
+                        <MapPin size={14} className="text-muted-foreground" />
+                        <span>{post.tripPost.location}</span>
+                      </div>
+                    </div>
+                    {/* Check if current user is the trip owner */}
+                    {post.userId?._id === user?._id ? (
+                      <Button
+                        onClick={() => {
+                          // Owner: Navigate to labs to manage trip
+                          if (post.tripPost?.tripId) {
+                            router.push(`/labs?tripId=${post.tripPost.tripId}`)
+                          } else {
+                            router.push('/labs')
+                          }
+                        }}
+                        variant="outline"
+                        className="w-full mt-2"
+                        size="sm"
+                      >
+                        <Settings size={14} className="mr-2" />
+                        Manage Trip
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={async () => {
+                          // Non-owner: Open join modal
+                          if (!post.tripPost?.tripId) {
+                            error('Trip Not Found', 'This trip is not available to join')
+                            return
+                          }
+                          
+                          try {
+                            setLoadingTrip(true)
+                            
+                            // Check if tripId exists
+                            if (!post.tripPost?.tripId) {
+                              error('Trip Not Found', 'This trip post does not have a valid trip ID')
+                              return
+                            }
+                            
+                            // Fetch trip directly by ID
+                            const response = await api.getTripById(post.tripPost.tripId)
+                            
+                            if (response.status === 'success' && response.trip) {
+                              setSelectedTripForJoin(response.trip)
+                              setShowJoinModal(true)
+                            } else {
+                              throw new Error('Trip not found in response')
+                            }
+                          } catch (err) {
+                            console.error('Failed to load trip:', err)
+                            const errorMessage = err.message || 'Failed to load trip details'
+                            
+                            // If tripId exists but trip not found, show specific error
+                            if (post.tripPost?.tripId && errorMessage.includes('not found')) {
+                              error('Trip Not Found', 'This trip is no longer available or has been removed')
+                            } else if (errorMessage.includes('not accessible')) {
+                              error('Access Denied', 'This trip is private and not available to join')
+                            } else {
+                              // Fallback: create trip object from post data for join modal
+                              const tripFromPost = {
+                                _id: post.tripPost.tripId,
+                                name: post.text?.split('!')[0]?.replace('Join me on ', '') || 'Trip',
+                                location: post.tripPost.location,
+                                destination: post.tripPost.location,
+                                startDate: post.tripPost.date,
+                                endDate: post.tripPost.date,
+                                itinerary: [],
+                                createdBy: post.userId?._id || post.userId
+                              }
+                              setSelectedTripForJoin(tripFromPost)
+                              setShowJoinModal(true)
+                            }
+                          } finally {
+                            setLoadingTrip(false)
+                          }
+                        }}
+                        disabled={loadingTrip}
+                        className="w-full mt-2"
+                        size="sm"
+                      >
+                        {loadingTrip ? (
+                          <>
+                            <Loader2 size={14} className="mr-2 animate-spin" />
+                            Loading...
+                          </>
+                        ) : (
+                          <>
+                            <Plane size={14} className="mr-2" />
+                            Join Trip
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Post Image */}
             {post.images && post.images.length > 0 ? (
@@ -508,11 +715,47 @@ export default function FeedScreen() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={() => {
+                    setShowCreateModal(false)
+                    setPostType('Post')
+                    setSelectedTrip(null)
+                    setCreateForm({
+                      caption: '',
+                      location: '',
+                      images: [],
+                      tripDate: '',
+                      tripCapacity: '',
+                      tripLocation: '',
+                      tripCoordinates: null
+                    })
+                  }}
                   className="text-muted-foreground hover:text-foreground"
                 >
                   <X size={18} />
                 </Button>
+              </div>
+
+              {/* Post Type Selector */}
+              <div className="px-3 lg:px-4 pt-3 lg:pt-4 border-b border-border">
+                <div className="flex gap-2">
+                  <Button
+                    variant={postType === 'Post' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setPostType('Post')}
+                    className="flex-1"
+                  >
+                    Regular Post
+                  </Button>
+                  <Button
+                    variant={postType === 'Trip' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setPostType('Trip')}
+                    className="flex-1"
+                  >
+                    <Plane size={16} className="mr-2" />
+                    Post My Trip
+                  </Button>
+                </div>
               </div>
 
               {/* Modal Content */}
@@ -560,16 +803,111 @@ export default function FeedScreen() {
                 </div>
 
                 {/* Location */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Location (Optional)</label>
-                  <input
-                    type="text"
-                    value={createForm.location}
-                    onChange={(e) => setCreateForm({ ...createForm, location: e.target.value })}
-                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="Where was this taken?"
-                  />
-                </div>
+                {postType === 'Post' && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">Location (Optional)</label>
+                    <input
+                      type="text"
+                      value={createForm.location}
+                      onChange={(e) => setCreateForm({ ...createForm, location: e.target.value })}
+                      className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="Where was this taken?"
+                    />
+                  </div>
+                )}
+
+                {/* Trip Post Fields */}
+                {postType === 'Trip' && (
+                  <div className="space-y-4 p-4 bg-primary/5 border border-primary/20 rounded-lg">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Plane size={18} className="text-primary" />
+                      <h3 className="text-sm font-semibold text-foreground">Trip Details</h3>
+                    </div>
+                    
+                    {/* Trip Selector */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-foreground flex items-center gap-2">
+                        <Plane size={14} />
+                        Select Trip <span className="text-red-500">*</span>
+                      </label>
+                      {loadingTrips ? (
+                        <div className="flex items-center justify-center py-4">
+                          <Loader2 size={20} className="animate-spin text-primary" />
+                          <span className="ml-2 text-sm text-muted-foreground">Loading your trips...</span>
+                        </div>
+                      ) : userTrips.length === 0 ? (
+                        <div className="p-4 bg-muted/50 rounded-lg border border-border text-center">
+                          <p className="text-sm text-muted-foreground mb-2">No trips found</p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => router.push('/labs')}
+                            className="text-xs"
+                          >
+                            Create a Trip in Labs
+                          </Button>
+                        </div>
+                      ) : (
+                        <select
+                          value={selectedTrip ? (selectedTrip._id || selectedTrip.id) : ''}
+                          onChange={(e) => handleTripSelect(e.target.value)}
+                          className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                          required
+                        >
+                          <option value="">-- Select a trip to post --</option>
+                          {userTrips.map((trip) => (
+                            <option key={trip._id || trip.id} value={trip._id || trip.id}>
+                              {trip.name} - {trip.location || trip.destination} ({new Date(trip.startDate).toLocaleDateString()})
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+
+                    {/* Selected Trip Details */}
+                    {selectedTrip && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="p-3 bg-background rounded-lg border border-border space-y-2"
+                      >
+                        <div className="flex items-center gap-2 text-sm text-foreground">
+                          <MapPin size={14} className="text-muted-foreground" />
+                          <span className="font-medium">{selectedTrip.location || selectedTrip.destination}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Calendar size={12} />
+                          <span>
+                            {new Date(selectedTrip.startDate).toLocaleDateString()} - {new Date(selectedTrip.endDate).toLocaleDateString()}
+                          </span>
+                        </div>
+                        {selectedTrip.itinerary && selectedTrip.itinerary.length > 0 && (
+                          <div className="text-xs text-muted-foreground">
+                            {selectedTrip.itinerary.length} activities planned
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
+
+                    {/* Capacity Input */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-foreground flex items-center gap-2">
+                        <Users size={14} />
+                        Capacity <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        value={createForm.tripCapacity}
+                        onChange={(e) => setCreateForm({ ...createForm, tripCapacity: e.target.value })}
+                        min="1"
+                        max="50"
+                        className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                        placeholder="How many people can join?"
+                        required
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Modal Footer */}
@@ -600,6 +938,21 @@ export default function FeedScreen() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Trip Join Modal */}
+      <TripJoinModal
+        isOpen={showJoinModal}
+        onClose={() => {
+          setShowJoinModal(false)
+          setSelectedTripForJoin(null)
+        }}
+        trip={selectedTripForJoin}
+        onSuccess={(request) => {
+          success('Request Sent', 'Your join request has been sent!')
+          setShowJoinModal(false)
+          setSelectedTripForJoin(null)
+        }}
+      />
     </div>
   )
 }

@@ -12,6 +12,9 @@ import { useRouter } from "next/navigation"
 import { useToast } from "@/components/ui/toast"
 import TripRequestsManager from "@/components/ui/trip-requests-manager"
 import FirebaseChat from "@/components/ui/firebase-chat"
+import ProfileCompletionIndicator from "@/components/ui/profile-completion-indicator"
+import AttendanceScreen from "@/components/ui/attendance-screen"
+import { CheckCircle } from "lucide-react"
 
 export default function ProfileScreen() {
   const { user, logout, updateProfile } = useAuth()
@@ -36,6 +39,9 @@ export default function ProfileScreen() {
   const [showChat, setShowChat] = useState(false)
   const [currentChatRoom, setCurrentChatRoom] = useState(null)
   const [selectedTrip, setSelectedTrip] = useState(null)
+  const [userTrips, setUserTrips] = useState([])
+  const [showAttendanceModal, setShowAttendanceModal] = useState(false)
+  const [selectedTripForAttendance, setSelectedTripForAttendance] = useState(null)
   const [editForm, setEditForm] = useState({
     name: '',
     bio: '',
@@ -57,14 +63,20 @@ export default function ProfileScreen() {
         const [tripsData, connectionsData, experiencesData] = await Promise.all([
           api.getTrips(),
           api.getConnections(),
-          api.getExperiences({ user: user?.id })
+          user?._id ? api.getExperiences({ user: user._id }) : Promise.resolve([])
         ])
+        
+        // Handle API response structure for trips
+        const trips = tripsData?.trips || tripsData || []
+        const tripsArray = Array.isArray(trips) ? trips : []
+        console.log('Loaded trips:', tripsArray.length, tripsArray)
+        setUserTrips(tripsArray)
         
         // Handle API response structure for connections
         const connections = connectionsData.connections || connectionsData.data || connectionsData || []
         
         setStats({
-          trips: tripsData.length || 0,
+          trips: trips.length || 0,
           connections: connections.length || 0,
           experiences: experiencesData.length || 0,
         })
@@ -243,31 +255,62 @@ export default function ProfileScreen() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="flex flex-col lg:flex-row items-center lg:items-start space-y-4 lg:space-y-0 lg:space-x-6"
+            className="flex flex-col lg:flex-row items-center lg:items-start space-y-6 lg:space-y-0 lg:space-x-8"
           >
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              className="relative w-16 h-16 lg:w-20 lg:h-20 rounded-full bg-gradient-to-br from-primary/50 to-primary/20 border-2 border-primary flex items-center justify-center text-2xl lg:text-3xl shadow-lg shadow-primary/20 overflow-hidden"
-            >
-              {user?.profileImage?.secureUrl || user?.profileImage?.url ? (
-                <img 
-                  src={user.profileImage.secureUrl || user.profileImage.url} 
-                  alt="Profile" 
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                "👤"
+            <div className="relative flex items-center justify-center pb-8">
+              {/* Profile Picture with Overlay Completion Ring */}
+              <div className="relative">
+                {/* Profile Completion Indicator - Overlays around profile picture edge */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <ProfileCompletionIndicator
+                    completion={user?.profileCompletion || 0}
+                    size={112}
+                    strokeWidth={4}
+                    showPercentage={false}
+                    className="absolute"
+                  />
+                </div>
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  className="relative w-20 h-20 ml-2 z-[1] lg:w-24 lg:h-24 rounded-full bg-gradient-to-br from-primary/50 to-primary/20 border-2 border-primary flex items-center justify-center text-2xl lg:text-3xl shadow-lg shadow-primary/20 overflow-hidden z-10"
+                >
+                  {user?.profileImage?.secureUrl || user?.profileImage?.url ? (
+                    <img 
+                      src={user.profileImage.secureUrl || user.profileImage.url} 
+                      alt="Profile" 
+                      className="w-full h-full object-cover "
+                    />
+                  ) : (
+                    "👤"
+                  )}
+                  <button
+                    onClick={() => setShowEditModal(true)}
+                    className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center text-white hover:bg-primary/90 transition-colors z-20 shadow-md"
+                  >
+                    <Camera size={12} />
+                  </button>
+                </motion.div>
+              </div>
+              {/* Percentage badge below profile picture */}
+              {user?.profileCompletion !== undefined && user.profileCompletion < 100 && (
+                <div className="absolute bottom-0 left-1/2 -mb-2 ml-2 -translate-x-1/2 px-3 py-1 bg-background/95 backdrop-blur-sm border border-border rounded-full text-xs font-medium text-muted-foreground whitespace-nowrap shadow-sm">
+                  {user.profileCompletion}% complete
+                </div>
               )}
-              <button
-                onClick={() => setShowEditModal(true)}
-                className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center text-white hover:bg-primary/90 transition-colors"
-              >
-                <Camera size={12} />
-              </button>
-            </motion.div>
-            <div className="text-center lg:text-left space-y-1 flex-1">
-              <h2 className="text-xl lg:text-2xl font-bold text-foreground">{user?.name || 'Loading...'}</h2>
-              <p className="text-muted-foreground text-sm">{user?.bio || 'Travel enthusiast'}</p>
+            </div>
+            <div className="text-center lg:text-left space-y-2 flex-1 min-w-0">
+              <div className="flex items-center gap-2 justify-center lg:justify-start flex-wrap">
+                <h2 className="text-xl lg:text-2xl font-bold text-foreground">{user?.name || 'Loading...'}</h2>
+                {user?.exoraSpells !== undefined && (
+                  <span className="text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary font-medium border border-primary/20 flex items-center gap-1">
+                    <span>✨</span>
+                    <span>{user.exoraSpells} spells</span>
+                  </span>
+                )}
+              </div>
+              {user?.bio && (
+                <p className="text-muted-foreground text-sm leading-relaxed">{user.bio}</p>
+              )}
               <p className="text-xs text-primary font-medium">Joined {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'Recently'}</p>
             </div>
 
@@ -287,24 +330,27 @@ export default function ProfileScreen() {
           </motion.div>
 
           {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-2 lg:max-w-md w-full">
+          <div className="flex flex-col sm:flex-row gap-2 w-full">
             <Button
               onClick={() => setShowEditModal(true)}
-              className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-2 rounded-lg smooth-transition silver-glow text-sm"
+              className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-2.5 rounded-lg smooth-transition shadow-sm text-sm"
             >
-              <Edit2 size={14} className="mr-2" />
+              <Edit2 size={16} className="mr-2" />
               Edit Profile
             </Button>
-            <Button variant="outline" className="flex-1 border-border hover:bg-muted/50 bg-transparent text-foreground py-2 text-sm">
-              <Share2 size={14} className="mr-2" />
+            <Button 
+              variant="outline" 
+              className="flex-1 border-border hover:bg-muted/50 bg-background text-foreground py-2.5 text-sm shadow-sm"
+            >
+              <Share2 size={16} className="mr-2" />
               Share
             </Button>
             <Button 
               onClick={logout}
               variant="outline" 
-              className="border-destructive/20 hover:bg-destructive/10 text-destructive py-2 text-sm"
+              className="flex-1 border-destructive/30 hover:bg-destructive/10 hover:border-destructive/50 text-destructive py-2.5 text-sm shadow-sm"
             >
-              <LogOut size={14} className="mr-2" />
+              <LogOut size={16} className="mr-2" />
               Logout
             </Button>
           </div>
@@ -604,6 +650,68 @@ export default function ProfileScreen() {
             )}
           </motion.div>
 
+          {/* My Trips (Host View) */}
+          {userTrips.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.32 }}
+              className="space-y-3"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                  <MapPin size={16} /> My Trips ({userTrips.length})
+                </h3>
+              </div>
+              <div className="space-y-2">
+                {userTrips.slice(0, 5).map((trip, idx) => (
+                  <motion.div
+                    key={trip._id || trip.id}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.2, delay: idx * 0.05 }}
+                    className="glass-effect rounded-lg p-3 border border-border hover:border-primary/50 smooth-transition"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <MapPin size={12} className="text-primary" />
+                          <h4 className="text-sm font-medium text-foreground truncate">
+                            {trip.name}
+                          </h4>
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-1">
+                          {trip.location || trip.destination}
+                        </p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Clock size={12} />
+                          <span>
+                            {new Date(trip.startDate).toLocaleDateString()} - {new Date(trip.endDate).toLocaleDateString()}
+                          </span>
+                        </div>
+                        {trip.membersInvolved && trip.membersInvolved.length > 1 && (
+                          <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                            <Users size={12} />
+                            <span>{trip.membersInvolved.length - 1} participant{trip.membersInvolved.length - 1 !== 1 ? 's' : ''}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+                {userTrips.length > 5 && (
+                  <Button
+                    variant="outline"
+                    className="w-full text-xs"
+                    onClick={() => router.push('/labs')}
+                  >
+                    View All {userTrips.length} Trips
+                  </Button>
+                )}
+              </div>
+            </motion.div>
+          )}
+
           {/* Trip Requests */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -890,6 +998,17 @@ export default function ProfileScreen() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Attendance Screen */}
+      <AttendanceScreen
+        isOpen={showAttendanceModal}
+        onClose={() => {
+          setShowAttendanceModal(false)
+          setSelectedTripForAttendance(null)
+        }}
+        tripId={selectedTripForAttendance?._id || selectedTripForAttendance?.id}
+        tripName={selectedTripForAttendance?.name}
+      />
 
       {/* Trip Requests Manager */}
       <TripRequestsManager
