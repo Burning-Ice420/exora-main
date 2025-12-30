@@ -327,9 +327,17 @@ export default function ActivityDetailPage() {
         {/* Description */}
         <div className="mb-12">
           <h2 className="text-2xl font-bold text-black mb-4">About This Experience</h2>
-          <p className="text-black/70 leading-relaxed mb-4">{activity.description}</p>
+          {activity.description && (
+            <div 
+              className="text-black/70 leading-relaxed mb-4"
+              dangerouslySetInnerHTML={{ __html: activity.description }}
+            />
+          )}
           {activity.longDescription && (
-            <p className="text-black/70 leading-relaxed">{activity.longDescription}</p>
+            <div 
+              className="text-black/70 leading-relaxed"
+              dangerouslySetInnerHTML={{ __html: activity.longDescription }}
+            />
           )}
         </div>
 
