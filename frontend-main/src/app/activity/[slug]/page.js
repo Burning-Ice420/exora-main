@@ -242,12 +242,7 @@ export default function ActivityDetailPage() {
               <Clock className="w-5 h-5 text-[#0a7ea4]" />
               <span className="font-medium">{activity.time}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <Users className="w-5 h-5 text-[#0a7ea4]" />
-              <span className="font-medium">
-                {activity.booked || 0}/{activity.capacity || "∞"} booked
-              </span>
-            </div>
+          
           </div>
         </div>
 
