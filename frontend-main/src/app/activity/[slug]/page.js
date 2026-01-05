@@ -25,6 +25,7 @@ export default function ActivityDetailPage() {
     name: "",
     email: "",
     phone: "",
+    college: "",
   })
   const [isProcessing, setIsProcessing] = useState(false)
 
@@ -79,14 +80,47 @@ export default function ActivityDetailPage() {
   }
 
   const handleJoin = async () => {
-    if (!attendeeInfo.name || !attendeeInfo.email) {
-      toast.error("Please enter your name and email")
+    if (!attendeeInfo.name || !attendeeInfo.email || !attendeeInfo.college) {
+      toast.error("Please enter your name, email, and college")
       return
     }
 
     setIsProcessing(true)
 
     try {
+      // Save attendee data before redirecting to payment
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.exora.in"
+      const saveResponse = await fetch(`${API_BASE_URL}/api/activities/save-attendee`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          activityId: activity._id,
+          attendeeName: attendeeInfo.name,
+          attendeeEmail: attendeeInfo.email,
+          attendeePhone: attendeeInfo.phone || "",
+          attendeeCollege: attendeeInfo.college,
+        }),
+      })
+
+      if (!saveResponse.ok) {
+        const errorData = await saveResponse.json().catch(() => ({}))
+        throw new Error(errorData.message || "Failed to save attendee information")
+      }
+
+      // Store attendee info in localStorage for payment verification
+      localStorage.setItem(
+        `attendee_${activity._id}`,
+        JSON.stringify({
+          name: attendeeInfo.name,
+          email: attendeeInfo.email,
+          phone: attendeeInfo.phone || "",
+          college: attendeeInfo.college,
+        })
+      )
+
+      // Continue with Razorpay flow
       await initiateRazorpayCheckout({
         amount: activity.price,
         activityName: activity.name,
@@ -94,6 +128,7 @@ export default function ActivityDetailPage() {
         attendeeName: attendeeInfo.name,
         attendeeEmail: attendeeInfo.email,
         attendeePhone: attendeeInfo.phone,
+        attendeeCollege: attendeeInfo.college,
         onSuccess: async (paymentResponse, verifyData) => {
           setIsProcessing(false)
           setShowCheckout(false)
@@ -103,7 +138,9 @@ export default function ActivityDetailPage() {
             activityName: activity.name || "",
           })
           setThankYouOpen(true)
-          setAttendeeInfo({ name: "", email: "", phone: "" })
+          setAttendeeInfo({ name: "", email: "", phone: "", college: "" })
+          // Clear localStorage after successful payment
+          localStorage.removeItem(`attendee_${activity._id}`)
         },
         onFailure: (error) => {
           setIsProcessing(false)
@@ -303,6 +340,15 @@ export default function ActivityDetailPage() {
                   value={attendeeInfo.phone}
                   onChange={(e) =>
                     setAttendeeInfo({ ...attendeeInfo, phone: e.target.value })
+                  }
+                  className="w-full px-4 py-3 rounded-lg border border-black/20 focus:outline-none focus:ring-2 focus:ring-[#0a7ea4] focus:border-transparent"
+                />
+                <input
+                  type="text"
+                  placeholder="College/University *"
+                  value={attendeeInfo.college}
+                  onChange={(e) =>
+                    setAttendeeInfo({ ...attendeeInfo, college: e.target.value })
                   }
                   className="w-full px-4 py-3 rounded-lg border border-black/20 focus:outline-none focus:ring-2 focus:ring-[#0a7ea4] focus:border-transparent"
                 />

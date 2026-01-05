@@ -465,6 +465,39 @@ class ApiClient {
       body: JSON.stringify({ memberId }),
     });
   }
+
+  // Activities API methods
+  async getActivities(filters: any = {}) {
+    const queryParams = new URLSearchParams(filters).toString();
+    return await this.request(`/api/activities?${queryParams}`);
+  }
+
+  async getActivity(slugOrId: string) {
+    return await this.request(`/api/activities/${slugOrId}`);
+  }
+
+  async createActivityOrder(activityId: string, amount: number, activityName?: string) {
+    return await this.request("/api/payments/create-order", {
+      method: "POST",
+      body: JSON.stringify({ activityId, amount, activityName }),
+    });
+  }
+
+  async verifyActivityPayment(paymentData: {
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+    activityId: string;
+    attendeeName: string;
+    attendeeEmail: string;
+    attendeePhone?: string;
+    attendeeCollege?: string;
+  }) {
+    return await this.request("/api/payments/verify", {
+      method: "POST",
+      body: JSON.stringify(paymentData),
+    });
+  }
 }
 
 // Export singleton instance

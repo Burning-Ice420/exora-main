@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState } from "react"
 import Hero from "@/components/landing/Hero"
 import Benefits from "@/components/landing/Benefits"
+import ActivitiesSection from "@/components/landing/ActivitiesSection"
 import SignupForm from "@/components/landing/SignupForm"
 
 export default function LandingPage() {
@@ -54,7 +55,10 @@ export default function LandingPage() {
       {/* All content sections scroll over video */}
       <div className="relative z-10">
         <Hero onGetEarlyAccess={handleGetEarlyAccess} />
+        <ActivitiesSection />
         <Benefits />
+        
+        
         <div ref={signupFormRef}>
           <SignupForm />
         </div>
