@@ -13,6 +13,7 @@ import TripRequestsManager from "@/components/ui/trip-requests-manager"
 import FirebaseChat from "@/components/ui/firebase-chat"
 import ItineraryParticipantsView from "@/components/ui/itinerary-participants-view"
 import { useToast } from "@/components/ui/toast"
+import GooglePlacesAutocomplete from "@/components/ui/google-places-autocomplete"
 
 export default function FinderScreen() {
   const router = useRouter()
@@ -35,6 +36,8 @@ export default function FinderScreen() {
   const [sendingRequest, setSendingRequest] = useState(false)
   const [userRequestStatus, setUserRequestStatus] = useState({}) // Track request status per trip
   const [selectedItineraries, setSelectedItineraries] = useState([]) // Track selected itineraries for join request
+  const [mapCenter, setMapCenter] = useState([15.2993, 74.1240]) // Goa, India coordinates
+  const [mapZoom, setMapZoom] = useState(13)
 
   // Load public trips on component mount
   useEffect(() => {
@@ -214,6 +217,22 @@ export default function FinderScreen() {
     // Optional: Add hover preview logic here if needed
   }, [])
 
+  // Handle location search on map
+  const handleLocationSearch = useCallback((locationData) => {
+    if (locationData && locationData.latitude !== null && locationData.longitude !== null) {
+      // Update map center to the selected location
+      setMapCenter([locationData.latitude, locationData.longitude])
+      setMapZoom(15) // Zoom in when a location is selected
+      
+      // Log the data for debugging
+      console.log('Location searched on map:', {
+        selectedAddress: locationData.address,
+        selectedLatitude: locationData.latitude,
+        selectedLongitude: locationData.longitude,
+      })
+    }
+  }, [])
+
   return (
     <div className="w-full h-full relative">
       {/* Full Screen Map */}
@@ -223,8 +242,8 @@ export default function FinderScreen() {
             // Only show trips with valid coordinates
             return trip.coordinates || trip.location?.coordinates || trip.startCoordinates
           })}
-          center={[15.2993, 74.1240]} // Goa, India coordinates
-          zoom={13}
+          center={mapCenter}
+          zoom={mapZoom}
           className="w-full h-full"
           onMarkerClick={handleMarkerClick}
           onMarkerHover={handleMarkerHover}
@@ -234,8 +253,8 @@ export default function FinderScreen() {
       {/* Floating Header */}
       <div className="absolute top-0 left-0 right-0 z-20 bg-background/95 backdrop-blur-md border-b border-border/30 shadow-sm">
         <div className="px-3 lg:px-4 py-2 lg:py-3">
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="flex-1">
               <h1 className="text-lg lg:text-xl font-bold text-foreground">exora finder</h1>
               <p className="text-xs text-muted-foreground hidden sm:block">Discover experiences near you</p>
             </div>
@@ -243,10 +262,19 @@ export default function FinderScreen() {
               onClick={() => setShowFilters(!showFilters)}
               variant="ghost"
               size="icon"
-              className="text-muted-foreground hover:text-primary"
+              className="text-muted-foreground hover:text-primary flex-shrink-0"
             >
               <Filter size={18} />
             </Button>
+          </div>
+
+          {/* Location Search Bar */}
+          <div className="mb-2">
+            <GooglePlacesAutocomplete
+              onSelect={handleLocationSearch}
+              placeholder="Search for a location on the map..."
+              className="w-full"
+            />
           </div>
 
           {/* Filters */}

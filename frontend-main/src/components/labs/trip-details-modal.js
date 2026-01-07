@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { MapPin, Eye, EyeOff, X, Search, Navigation, Check } from "lucide-react"
-import LocationSearch from "@/components/ui/location-search"
+import GooglePlacesAutocomplete from "@/components/ui/google-places-autocomplete"
 import MapPicker from "@/components/ui/map-picker"
 
 export default function TripDetailsModal({ onCreateTrip, isOpen, onClose }) {
@@ -17,7 +17,6 @@ export default function TripDetailsModal({ onCreateTrip, isOpen, onClose }) {
     budget: 10000,
     startCoordinates: null,
   })
-  const [showLocationSearch, setShowLocationSearch] = useState(false)
   const [showMapPicker, setShowMapPicker] = useState(false)
   const [coordinatesAccepted, setCoordinatesAccepted] = useState(false)
 
@@ -28,8 +27,24 @@ export default function TripDetailsModal({ onCreateTrip, isOpen, onClose }) {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleLocationSelect = (location) => {
-    setFormData((prev) => ({ ...prev, location }))
+  const handleLocationSelect = (locationData) => {
+    // locationData contains: { address, latitude, longitude, place }
+    if (locationData && locationData.address) {
+      setFormData((prev) => ({
+        ...prev,
+        location: locationData.address,
+        // Store coordinates if available
+        startCoordinates: locationData.latitude !== null && locationData.longitude !== null
+          ? [locationData.latitude, locationData.longitude]
+          : prev.startCoordinates,
+      }))
+      // Log the data for debugging
+      console.log('Location selected:', {
+        selectedAddress: locationData.address,
+        selectedLatitude: locationData.latitude,
+        selectedLongitude: locationData.longitude,
+      })
+    }
     setShowLocationSearch(false)
   }
 
@@ -45,7 +60,6 @@ export default function TripDetailsModal({ onCreateTrip, isOpen, onClose }) {
         budget: 10000,
         startCoordinates: null,
       })
-      setShowLocationSearch(false)
       setShowMapPicker(false)
       setCoordinatesAccepted(false)
     }
@@ -109,26 +123,33 @@ export default function TripDetailsModal({ onCreateTrip, isOpen, onClose }) {
           <div className="space-y-2">
             <label className="text-xs font-medium text-foreground">Location</label>
             {formData.location ? (
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-border">
-                <MapPin size={14} className="text-muted-foreground" />
-                <span className="text-sm text-foreground font-medium flex-1">{formData.location}</span>
-                <button
-                  type="button"
-                  onClick={() => setFormData((prev) => ({ ...prev, location: "", startCoordinates: null }))}
-                  className="p-1 rounded hover:bg-white/10 smooth-transition"
-                >
-                  <X size={12} className="text-muted-foreground" />
-                </button>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-border">
+                  <MapPin size={14} className="text-muted-foreground" />
+                  <span className="text-sm text-foreground font-medium flex-1">{formData.location}</span>
+                  <button
+                    type="button"
+                    onClick={() => setFormData((prev) => ({ ...prev, location: "", startCoordinates: null }))}
+                    className="p-1 rounded hover:bg-white/10 smooth-transition"
+                  >
+                    <X size={12} className="text-muted-foreground" />
+                  </button>
+                </div>
+                {formData.startCoordinates && (
+                  <div className="text-xs text-muted-foreground px-3">
+                    Coordinates: {formData.startCoordinates[0].toFixed(6)}, {formData.startCoordinates[1].toFixed(6)}
+                  </div>
+                )}
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={() => setShowLocationSearch(true)}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-border text-sm text-muted-foreground hover:text-foreground smooth-transition"
-              >
-                <Search size={14} />
-                Search for a location...
-              </button>
+              <div>
+                <GooglePlacesAutocomplete
+                  value={formData.location}
+                  onSelect={handleLocationSelect}
+                  placeholder="Search for a location..."
+                  className="w-full"
+                />
+              </div>
             )}
             
             {/* Map Picker Button */}
@@ -267,23 +288,6 @@ export default function TripDetailsModal({ onCreateTrip, isOpen, onClose }) {
           </Button>
         </form>
 
-        {/* Location Search Modal */}
-        {showLocationSearch && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-background border border-border rounded-2xl p-4 max-w-md w-full">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-foreground">Select Location</h3>
-                <button
-                  onClick={() => setShowLocationSearch(false)}
-                  className="p-1 rounded hover:bg-white/10 smooth-transition"
-                >
-                  <X size={20} className="text-muted-foreground" />
-                </button>
-              </div>
-              <LocationSearch onLocationSelect={handleLocationSelect} value={formData.location} />
-            </div>
-          </div>
-        )}
 
         {/* Map Picker Modal */}
         {showMapPicker && (

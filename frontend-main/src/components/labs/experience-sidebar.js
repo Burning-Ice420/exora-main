@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Search, Plus, X, Calendar, Clock } from "lucide-react"
+import GooglePlacesAutocomplete from "@/components/ui/google-places-autocomplete"
 
 // Helper to format time
 const formatTime = (hour) => {
@@ -22,6 +23,7 @@ const parseDuration = (duration) => {
 export default function ExperienceSidebar({ onAddExperience, trip }) {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState(null)
+  const [locationSearchValue, setLocationSearchValue] = useState("") // For the autocomplete input
   const [dragPreview, setDragPreview] = useState(null)
   const [showTimeModal, setShowTimeModal] = useState(false)
   const [selectedExperience, setSelectedExperience] = useState(null)
@@ -46,6 +48,9 @@ export default function ExperienceSidebar({ onAddExperience, trip }) {
     img.src = canvas.toDataURL()
     return img
   }
+
+  // Store user-added locations separately to preserve them
+  const [userAddedLocations, setUserAddedLocations] = useState([])
 
   // Fetch experiences from API
   useEffect(() => {
@@ -77,29 +82,88 @@ export default function ExperienceSidebar({ onAddExperience, trip }) {
             price: exp.price || 0,
             category: exp.category || 'Activity'
           }))
-          setExperiences(transformedExperiences)
+          // Merge with user-added locations
+          setExperiences([...userAddedLocations, ...transformedExperiences])
         } else {
           console.error('Failed to fetch experiences')
-          setExperiences([])
+          setExperiences(userAddedLocations)
         }
       } catch (error) {
         console.error('Error fetching experiences:', error)
-        setExperiences([])
+        setExperiences(userAddedLocations)
       } finally {
         setLoading(false)
       }
     }
 
     fetchExperiences()
-  }, [selectedCategory])
+  }, [selectedCategory, userAddedLocations])
 
   const categories = Array.from(new Set(experiences.map((exp) => exp.category)))
+
+  // Handle location selection from Google Places Autocomplete
+  const handleLocationSelect = (locationData) => {
+    if (locationData && locationData.address) {
+      // Log the data for debugging
+      console.log('Location selected in experience sidebar:', {
+        selectedAddress: locationData.address,
+        selectedLatitude: locationData.latitude,
+        selectedLongitude: locationData.longitude,
+      })
+
+      // Create an experience object from the selected location
+      const locationExperience = {
+        id: `location-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        name: locationData.address,
+        duration: '2 hours', // Default duration
+        price: 0, // Free by default, user can modify if needed
+        category: 'Location',
+        location: locationData.address,
+        coordinates: locationData.latitude !== null && locationData.longitude !== null
+          ? { latitude: locationData.latitude, longitude: locationData.longitude }
+          : null,
+        place: locationData.place, // Store full place object
+        // Mark as a location-based experience
+        isLocation: true,
+      }
+
+      // Add the location to user-added locations (preserved across API fetches)
+      setUserAddedLocations((prev) => {
+        // Check if this location already exists to avoid duplicates
+        const exists = prev.some(exp => exp.location === locationExperience.location)
+        if (exists) {
+          return prev
+        }
+        return [locationExperience, ...prev]
+      })
+      
+      // Also add to current experiences list immediately
+      setExperiences((prev) => {
+        const exists = prev.some(exp => exp.id === locationExperience.id || 
+          (exp.isLocation && exp.location === locationExperience.location))
+        if (exists) {
+          return prev
+        }
+        return [locationExperience, ...prev]
+      })
+      
+      // Clear the search input after selection
+      setLocationSearchValue("")
+    }
+  }
+
 
   const filteredExperiences = experiences.filter((exp) => {
     const matchesSearch = exp.name.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesCategory = !selectedCategory || exp.category === selectedCategory
     return matchesSearch && matchesCategory
   })
+
+  // Get location name for display
+  const getLocationDisplayName = () => {
+    // Default to trip location or "Goa"
+    return trip?.location || "Goa"
+  }
 
   // Generate unique ID for experiences
   const generateUniqueId = () => {
@@ -148,6 +212,18 @@ export default function ExperienceSidebar({ onAddExperience, trip }) {
       price: selectedExperience.price,
       duration: selectedExperience.duration,
       category: selectedExperience.category,
+      // Include location data if it's a location-based experience
+      ...(selectedExperience.location && {
+        location: selectedExperience.location,
+      }),
+      ...(selectedExperience.coordinates && {
+        coordinates: selectedExperience.coordinates,
+        latitude: selectedExperience.coordinates.latitude,
+        longitude: selectedExperience.coordinates.longitude,
+      }),
+      ...(selectedExperience.place && {
+        place: selectedExperience.place,
+      }),
     }
 
     onAddExperience(newItem)
@@ -216,9 +292,22 @@ export default function ExperienceSidebar({ onAddExperience, trip }) {
 
       {/* Header */}
       <div className="px-6 py-4 border-b border-border">
-        <h3 className="font-semibold text-foreground mb-4">Suggested for Goa</h3>
+        <h3 className="font-semibold text-foreground mb-4">Suggested for {getLocationDisplayName()}</h3>
 
-        {/* Search */}
+        {/* Location Search */}
+        <div className="mb-3">
+          <GooglePlacesAutocomplete
+            value={locationSearchValue}
+            onSelect={handleLocationSelect}
+            placeholder="Search for a location to add..."
+            className="w-full"
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Select a location to add it as an experience to your itinerary
+          </p>
+        </div>
+
+        {/* Experience Name Search */}
         <div className="relative mb-4">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -308,7 +397,19 @@ export default function ExperienceSidebar({ onAddExperience, trip }) {
                     experienceName: exp.name,
                     price: exp.price,
                     duration: exp.duration,
-                    category: exp.category
+                    category: exp.category,
+                    // Include location data if it's a location-based experience
+                    ...(exp.isLocation && exp.location && {
+                      location: exp.location,
+                    }),
+                    ...(exp.isLocation && exp.coordinates && {
+                      coordinates: exp.coordinates,
+                      latitude: exp.coordinates.latitude,
+                      longitude: exp.coordinates.longitude,
+                    }),
+                    ...(exp.isLocation && exp.place && {
+                      place: exp.place,
+                    }),
                   }
                   
                   // Create and set transparent drag image to hide browser default
