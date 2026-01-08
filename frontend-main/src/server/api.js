@@ -151,6 +151,27 @@ class ApiClient {
     return response
   }
 
+  // OTP endpoints
+  async sendOTP(phone) {
+    return await this.request('/api/users/send-otp', {
+      method: 'POST',
+      body: JSON.stringify({ phone }),
+    })
+  }
+
+  async verifyOTPAndSignup(userData) {
+    const response = await this.request('/api/users/verify-otp-signup', {
+      method: 'POST',
+      body: JSON.stringify(userData),
+    })
+    
+    if (response && response.token) {
+      this.setToken(response.token)
+    }
+    
+    return response
+  }
+
   async logout() {
     try {
       await this.request('/api/auth/logout', {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import LocationSearch from '@/components/ui/location-search'
 import ImageUpload from '@/components/ui/image-upload'
-import { ArrowRight, ArrowLeft, Mail, Lock, User, MapPin, Calendar, Heart, Camera, Music, X } from 'lucide-react'
+import { ArrowRight, ArrowLeft, Mail, Lock, User, MapPin, Calendar, Heart, Camera, Music, X, Phone } from 'lucide-react'
+import api from '@/server/api'
 
 const TRAVEL_PREFERENCES = [
   { id: 'adventure', label: 'Adventure', emoji: '🏔️' },
@@ -38,14 +39,19 @@ export default function SignupPage() {
   const [uploading, setUploading] = useState(false)
   const [selectedPhotos, setSelectedPhotos] = useState([])
   const [selectedProfilePhoto, setSelectedProfilePhoto] = useState(null)
+  const [otpSent, setOtpSent] = useState(false)
+  const [otpResendTimer, setOtpResendTimer] = useState(0)
+  const [sendingOTP, setSendingOTP] = useState(false)
   
   const [formData, setFormData] = useState({
     // Basic Info
     name: '',
     email: '',
+    phone: '',
     password: '',
     confirmPassword: '',
     acceptedTerms: false,
+    otp: '',
     
     // Profile
     dateOfBirth: '',
@@ -70,6 +76,7 @@ export default function SignupPage() {
 
   const steps = [
     { title: 'Basic Info', subtitle: 'Let\'s start with the basics' },
+    { title: 'Verify Phone', subtitle: 'Enter the OTP sent to your phone' },
     { title: 'Profile', subtitle: 'Tell us about yourself' },
     { title: 'Photos', subtitle: 'Add some photos and tell us about yourself' },
     { title: 'Travel Style', subtitle: 'What kind of traveler are you?' },
@@ -77,10 +84,79 @@ export default function SignupPage() {
     { title: 'Interests', subtitle: 'What makes you unique?' },
   ]
 
-  const handleNext = () => {
-    if (currentStep < steps.length - 1) {
+  // OTP resend timer
+  useEffect(() => {
+    if (otpResendTimer > 0) {
+      const timer = setTimeout(() => setOtpResendTimer(otpResendTimer - 1), 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [otpResendTimer])
+
+  const handleNext = async () => {
+    // If moving from Basic Info to OTP verification, send OTP first
+    if (currentStep === 0) {
+      // Validate basic info before sending OTP
+      if (!formData.name || !formData.email || !formData.phone || !formData.password || !formData.confirmPassword) {
+        setError('Please fill in all required fields')
+        return
+      }
+
+      if (formData.password !== formData.confirmPassword) {
+        setError('Passwords do not match')
+        return
+      }
+
+      if (!formData.acceptedTerms) {
+        setError('You must accept the Terms and Conditions to continue')
+        return
+      }
+
+      // Validate phone number (10 digits, Indian format)
+      const phoneRegex = /^[6-9]\d{9}$/
+      if (!phoneRegex.test(formData.phone.replace(/\D/g, ''))) {
+        setError('Please enter a valid 10-digit Indian mobile number')
+        return
+      }
+
+      // Send OTP
+      await handleSendOTP()
+      if (otpSent) {
+        setCurrentStep(1) // Move to OTP verification step
+      }
+    } else if (currentStep === 1) {
+      // Verify OTP before proceeding
+      if (!formData.otp || formData.otp.length !== 6) {
+        setError('Please enter a valid 6-digit OTP')
+        return
+      }
+      // OTP will be verified during final submission
+      setCurrentStep(2)
+    } else if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1)
     }
+  }
+
+  const handleSendOTP = async () => {
+    setSendingOTP(true)
+    setError('')
+    
+    try {
+      const cleanPhone = formData.phone.replace(/\D/g, '')
+      await api.sendOTP(cleanPhone)
+      setOtpSent(true)
+      setOtpResendTimer(60) // 60 seconds cooldown
+      setError('')
+    } catch (error) {
+      setError(error.message || 'Failed to send OTP. Please try again.')
+      setOtpSent(false)
+    } finally {
+      setSendingOTP(false)
+    }
+  }
+
+  const handleResendOTP = async () => {
+    if (otpResendTimer > 0) return
+    await handleSendOTP()
   }
 
   const handlePrevious = () => {
@@ -92,6 +168,15 @@ export default function SignupPage() {
   const handleSubmit = async () => {
     setLoading(true)
     setError('')
+
+    // Validate OTP if we're on the OTP step
+    if (currentStep === 1) {
+      if (!formData.otp || formData.otp.length !== 6) {
+        setError('Please enter a valid 6-digit OTP')
+        setLoading(false)
+        return
+      }
+    }
 
     // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
@@ -107,24 +192,37 @@ export default function SignupPage() {
       return
     }
 
+    // Validate OTP is sent
+    if (!otpSent) {
+      setError('Please verify your phone number first')
+      setLoading(false)
+      return
+    }
+
     try {
       // Prepare data for backend - send age instead of dateOfBirth, include profilePhoto
       const { dateOfBirth, acceptedTerms, confirmPassword, ...submitData } = formData
+      
+      // Clean phone number (remove non-digits)
+      submitData.phone = formData.phone.replace(/\D/g, '')
       
       // Add profile photo to submit data if available
       if (formData.profilePhoto) {
         submitData.profileImage = formData.profilePhoto
       }
       
-      const result = await register(submitData)
+      // Use verifyOTPAndSignup instead of register
+      const response = await api.verifyOTPAndSignup(submitData)
       
-      if (result.success) {
+      if (response && response.status === 'success' && response.user) {
+        // Token is already set by verifyOTPAndSignup in the API client
+        // Redirect to feed - AuthContext will check auth on mount
         router.push('/feed')
       } else {
-        setError(result.error || 'Registration failed')
+        setError(response?.message || 'Registration failed. Please try again.')
       }
     } catch (error) {
-      setError('An unexpected error occurred')
+      setError(error.message || 'An unexpected error occurred')
     } finally {
       setLoading(false)
     }
@@ -291,6 +389,24 @@ export default function SignupPage() {
               </div>
 
               <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Phone Number</label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={18} />
+                  <Input
+                    type="tel"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    placeholder="Enter your 10-digit mobile number"
+                    className="pl-10"
+                    maxLength={10}
+                    required
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">We'll send an OTP to verify your number</p>
+              </div>
+
+              <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Password</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={18} />
@@ -380,7 +496,51 @@ export default function SignupPage() {
           </div>
         )
 
-      case 1: // Profile
+      case 1: // OTP Verification
+        return (
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <div className="text-center space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  We've sent a 6-digit OTP to <span className="font-semibold text-foreground">{formData.phone}</span>
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Enter OTP</label>
+                <Input
+                  type="text"
+                  name="otp"
+                  value={formData.otp}
+                  onChange={handleChange}
+                  placeholder="Enter 6-digit OTP"
+                  className="text-center text-2xl tracking-widest"
+                  maxLength={6}
+                  required
+                />
+              </div>
+
+              <div className="text-center">
+                {otpResendTimer > 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Resend OTP in {otpResendTimer} seconds
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleResendOTP}
+                    disabled={sendingOTP}
+                    className="text-sm text-primary hover:text-primary/80 font-medium"
+                  >
+                    {sendingOTP ? 'Sending...' : 'Resend OTP'}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+
+      case 2: // Profile
         return (
           <div className="space-y-6">
             <div className="space-y-4">
@@ -415,7 +575,7 @@ export default function SignupPage() {
           </div>
         )
 
-      case 3: // Travel Style (moved from case 2)
+      case 4: // Travel Style (moved from case 3)
         return (
           <div className="space-y-6">
             <div className="space-y-4">
@@ -443,7 +603,7 @@ export default function SignupPage() {
           </div>
         )
 
-      case 4: // Travel Preferences (moved from case 3)
+      case 5: // Travel Preferences (moved from case 4)
         return (
           <div className="space-y-6">
             <div className="space-y-4">
@@ -470,7 +630,7 @@ export default function SignupPage() {
           </div>
         )
 
-      case 2: // Photos (moved up, now includes bio)
+      case 3: // Photos (moved up, now includes bio)
         return (
           <div className="space-y-6">
             <div className="space-y-4">
@@ -544,7 +704,7 @@ export default function SignupPage() {
           </div>
         )
 
-      case 5: // Interests
+      case 6: // Interests
         return (
           <div className="space-y-6">
             <div className="space-y-4">
@@ -662,13 +822,41 @@ export default function SignupPage() {
                 </div>
               )}
             </Button>
+          ) : currentStep === 1 ? (
+            <Button
+              onClick={handleNext}
+              disabled={!formData.otp || formData.otp.length !== 6 || loading}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-6"
+            >
+              {loading ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                  Verifying...
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  Verify & Continue
+                  <ArrowRight size={18} />
+                </div>
+              )}
+            </Button>
           ) : (
             <Button
               onClick={handleNext}
+              disabled={currentStep === 0 && sendingOTP}
               className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-6"
             >
-              Next
-              <ArrowRight size={18} />
+              {currentStep === 0 && sendingOTP ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                  Sending OTP...
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  Next
+                  <ArrowRight size={18} />
+                </div>
+              )}
             </Button>
           )}
         </div>
