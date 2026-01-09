@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Search, Plus, X, Calendar, Clock } from "lucide-react"
+import { Search, Plus, X, Calendar, Clock, MapPin } from "lucide-react"
 import GooglePlacesAutocomplete from "@/components/ui/google-places-autocomplete"
 
 // Helper to format time
@@ -32,6 +32,11 @@ export default function ExperienceSidebar({ onAddExperience, trip }) {
   const [selectedMinute, setSelectedMinute] = useState(0)
   const [experiences, setExperiences] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showLocationModal, setShowLocationModal] = useState(false)
+  const [pendingLocation, setPendingLocation] = useState(null)
+  const [locationDuration, setLocationDuration] = useState("2")
+  const [locationPrice, setLocationPrice] = useState("0")
+  const [locationName, setLocationName] = useState("")
 
   
   // Create custom drag image (transparent to hide browser default)
@@ -104,52 +109,147 @@ export default function ExperienceSidebar({ onAddExperience, trip }) {
   // Handle location selection from Google Places Autocomplete
   const handleLocationSelect = (locationData) => {
     if (locationData && locationData.address) {
-      // Log the data for debugging
-      console.log('Location selected in experience sidebar:', {
-        selectedAddress: locationData.address,
-        selectedLatitude: locationData.latitude,
-        selectedLongitude: locationData.longitude,
-      })
-
-      // Create an experience object from the selected location
-      const locationExperience = {
-        id: `location-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        name: locationData.address,
-        duration: '2 hours', // Default duration
-        price: 0, // Free by default, user can modify if needed
-        category: 'Location',
-        location: locationData.address,
-        coordinates: locationData.latitude !== null && locationData.longitude !== null
-          ? { latitude: locationData.latitude, longitude: locationData.longitude }
-          : null,
-        place: locationData.place, // Store full place object
-        // Mark as a location-based experience
-        isLocation: true,
+      // Extract a cleaner default name from the address
+      // Try to get a meaningful name (first 2-3 parts before comma, or use place name if available)
+      let defaultName = ""
+      if (locationData.place?.name) {
+        defaultName = locationData.place.name
+      } else {
+        const addressParts = locationData.address.split(',').map(part => part.trim())
+        // Take first 1-2 parts, but skip generic parts like "Near", "Lane No."
+        const meaningfulParts = addressParts.filter(part => 
+          !part.match(/^(Near|Lane No\.|Upper|Lower)$/i)
+        ).slice(0, 2)
+        defaultName = meaningfulParts.join(', ') || addressParts[0] || locationData.address
       }
 
-      // Add the location to user-added locations (preserved across API fetches)
-      setUserAddedLocations((prev) => {
-        // Check if this location already exists to avoid duplicates
-        const exists = prev.some(exp => exp.location === locationExperience.location)
-        if (exists) {
-          return prev
-        }
-        return [locationExperience, ...prev]
-      })
-      
-      // Also add to current experiences list immediately
-      setExperiences((prev) => {
-        const exists = prev.some(exp => exp.id === locationExperience.id || 
-          (exp.isLocation && exp.location === locationExperience.location))
-        if (exists) {
-          return prev
-        }
-        return [locationExperience, ...prev]
-      })
-      
-      // Clear the search input after selection
-      setLocationSearchValue("")
+      // Store the pending location and show modal for price/duration input
+      setPendingLocation(locationData)
+      setLocationDuration("2")
+      setLocationPrice("0")
+      setLocationName(defaultName)
+      setShowLocationModal(true)
     }
+  }
+
+  // Confirm adding location with user-entered price and duration
+  const handleConfirmLocation = () => {
+    if (!pendingLocation) return
+
+    const durationHours = parseFloat(locationDuration) || 2
+    const price = parseFloat(locationPrice) || 0
+    const name = locationName.trim() || pendingLocation.address.split(',')[0].trim()
+
+    // Extract photo URLs from Google Places photos
+    // Priority: 1. pendingLocation.photos (already extracted URLs), 2. Extract from place.photos
+    let photoUrls = []
+    console.log('=== EXTRACTING PHOTOS FROM LOCATION ===')
+    console.log('pendingLocation object:', pendingLocation)
+    console.log('pendingLocation.photos type:', typeof pendingLocation.photos, 'value:', pendingLocation.photos)
+    console.log('pendingLocation.place?.photos type:', typeof pendingLocation.place?.photos, 'length:', pendingLocation.place?.photos?.length)
+    
+    // First, try to use already extracted URLs from pendingLocation.photos
+    if (pendingLocation.photos && Array.isArray(pendingLocation.photos) && pendingLocation.photos.length > 0) {
+      // Check if they're URLs (strings) or photo objects
+      const firstItem = pendingLocation.photos[0]
+      if (typeof firstItem === 'string') {
+        // Already extracted URLs
+        photoUrls = pendingLocation.photos.filter(url => url && typeof url === 'string')
+        console.log('Using pendingLocation.photos (URLs):', photoUrls.length, 'URLs')
+      } else if (firstItem && typeof firstItem.getUrl === 'function') {
+        // Photo objects with getUrl method - extract URLs
+        console.log('Extracting from pendingLocation.photos (objects with getUrl)')
+        photoUrls = pendingLocation.photos.map((photo, index) => {
+          try {
+            return photo.getUrl({ maxWidth: 800, maxHeight: 800 })
+          } catch (e) {
+            console.error(`Error getting photo URL ${index}:`, e)
+            return null
+          }
+        }).filter(Boolean)
+        console.log('Extracted URLs from pendingLocation.photos:', photoUrls.length)
+      }
+    }
+    
+    // If no URLs yet, try to extract from place.photos
+    if (photoUrls.length === 0 && pendingLocation.place?.photos && pendingLocation.place.photos.length > 0) {
+      console.log('Extracting from place.photos, count:', pendingLocation.place.photos.length)
+      photoUrls = pendingLocation.place.photos.map((photo, index) => {
+        try {
+          // Check if getUrl is a function
+          if (typeof photo.getUrl === 'function') {
+            const url = photo.getUrl({ maxWidth: 800, maxHeight: 800 })
+            console.log(`Photo ${index} URL extracted:`, url)
+            return url
+          } else {
+            console.warn(`Photo ${index} does not have getUrl method, type:`, typeof photo, 'photo:', photo)
+            return null
+          }
+        } catch (e) {
+          console.error(`Error getting photo URL for photo ${index}:`, e)
+          return null
+        }
+      }).filter(Boolean)
+      console.log('Extracted photo URLs from place:', photoUrls.length)
+    }
+    
+    if (photoUrls.length === 0) {
+      console.warn('No photos extracted! Check pendingLocation structure')
+    }
+    
+    console.log('Final photoUrls array length:', photoUrls.length)
+    console.log('First photo URL:', photoUrls[0] || 'NONE')
+    console.log('=== END PHOTO EXTRACTION ===')
+
+    // Create an experience object from the selected location
+    const locationExperience = {
+      id: `location-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      name: name, // Use custom name or fallback to first part of address
+      duration: `${durationHours} ${durationHours === 1 ? 'hour' : 'hours'}`,
+      price: price,
+      category: 'Location',
+      location: pendingLocation.address,
+      coordinates: pendingLocation.latitude !== null && pendingLocation.longitude !== null
+        ? { latitude: pendingLocation.latitude, longitude: pendingLocation.longitude }
+        : null,
+      place: pendingLocation.place, // Store full place object
+      images: photoUrls.length > 0 ? photoUrls : [], // Store extracted photo URLs - ensure it's always an array
+      image: photoUrls.length > 0 ? photoUrls[0] : null, // Store first photo as main image
+      // Mark as a location-based experience
+      isLocation: true,
+    }
+    
+    console.log('=== LOCATION EXPERIENCE CREATED ===')
+    console.log('locationExperience.images:', locationExperience.images)
+    console.log('locationExperience.image:', locationExperience.image)
+    console.log('photoUrls count:', photoUrls.length)
+    console.log('=== END LOCATION EXPERIENCE ===')
+
+    // Add the location to user-added locations (preserved across API fetches)
+    setUserAddedLocations((prev) => {
+      // Check if this location already exists to avoid duplicates
+      const exists = prev.some(exp => exp.location === locationExperience.location)
+      if (exists) {
+        return prev
+      }
+      return [locationExperience, ...prev]
+    })
+    
+    // Also add to current experiences list immediately
+    setExperiences((prev) => {
+      const exists = prev.some(exp => exp.id === locationExperience.id || 
+        (exp.isLocation && exp.location === locationExperience.location))
+      if (exists) {
+        return prev
+      }
+      return [locationExperience, ...prev]
+    })
+    
+    // Clear the search input and close modal
+    setLocationSearchValue("")
+    setShowLocationModal(false)
+    setPendingLocation(null)
+    setLocationName("")
   }
 
 
@@ -224,7 +324,21 @@ export default function ExperienceSidebar({ onAddExperience, trip }) {
       ...(selectedExperience.place && {
         place: selectedExperience.place,
       }),
+      // ALWAYS include image data - don't use conditional spread
+      image: selectedExperience.image || null,
+      images: Array.isArray(selectedExperience.images) && selectedExperience.images.length > 0 
+        ? selectedExperience.images.filter(img => img && typeof img === 'string')
+        : [],
     }
+    
+    console.log('[Experience Sidebar] handleConfirmAdd - newItem created:', {
+      experienceName: newItem.experienceName,
+      hasImage: !!newItem.image,
+      image: newItem.image,
+      hasImages: !!newItem.images,
+      imagesLength: newItem.images?.length || 0,
+      images: newItem.images
+    })
 
     onAddExperience(newItem)
     setShowTimeModal(false)
@@ -457,6 +571,149 @@ export default function ExperienceSidebar({ onAddExperience, trip }) {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Location Price & Duration Modal */}
+      <AnimatePresence>
+        {showLocationModal && pendingLocation && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setShowLocationModal(false)
+                setPendingLocation(null)
+                setLocationSearchValue("")
+                setLocationName("")
+              }}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
+            />
+            
+            {/* Modal */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            >
+              <div className="bg-background rounded-xl border border-border shadow-2xl w-full max-w-md">
+                {/* Header */}
+                <div className="px-6 py-4 border-b border-border">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-foreground">Add Location</h3>
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => {
+                        setShowLocationModal(false)
+                        setPendingLocation(null)
+                        setLocationSearchValue("")
+                        setLocationName("")
+                      }}
+                      className="p-1.5 rounded-lg hover:bg-muted/50 smooth-transition"
+                    >
+                      <X size={18} className="text-muted-foreground" />
+                    </motion.button>
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="px-6 py-4 space-y-4">
+                  {/* Name Input */}
+                  <div>
+                    <label className="text-sm font-semibold text-foreground mb-2 block">
+                      Location Name
+                    </label>
+                    <input
+                      type="text"
+                      value={locationName}
+                      onChange={(e) => setLocationName(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-lg bg-background border-2 border-border text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                      placeholder="e.g., Beach Viewpoint, Restaurant Name"
+                    />
+                    <div className="mt-2 p-2.5 rounded-lg bg-muted/30 border border-border/50">
+                      <p className="text-xs text-muted-foreground mb-1 font-medium">Full Address:</p>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        {pendingLocation.address}
+                      </p>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      This custom name will be displayed in your itinerary
+                    </p>
+                  </div>
+
+                  {/* Duration Input */}
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-2 flex items-center gap-2">
+                      <Clock size={14} />
+                      Duration (hours)
+                    </label>
+                    <input
+                      type="number"
+                      min="0.5"
+                      max="24"
+                      step="0.5"
+                      value={locationDuration}
+                      onChange={(e) => setLocationDuration(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="2"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      How long will you spend here?
+                    </p>
+                  </div>
+
+                  {/* Price Input */}
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-2">
+                      Price (₹)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={locationPrice}
+                      onChange={(e) => setLocationPrice(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="0"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Enter 0 if free
+                    </p>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-3 pt-2">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        setShowLocationModal(false)
+                        setPendingLocation(null)
+                        setLocationSearchValue("")
+                        setLocationName("")
+                      }}
+                      className="flex-1 px-4 py-2.5 rounded-lg border border-border bg-white/5 text-foreground hover:bg-white/10 smooth-transition font-medium text-sm"
+                    >
+                      Cancel
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={handleConfirmLocation}
+                      className="flex-1 px-4 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground smooth-transition font-semibold text-sm"
+                    >
+                      Add Location
+                    </motion.button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Time and Day Selection Modal - Draggable Bottom Sheet */}
       <AnimatePresence>

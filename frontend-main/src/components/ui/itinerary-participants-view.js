@@ -111,9 +111,26 @@ export default function ItineraryParticipantsView({ tripId, isOpen, onClose }) {
                   >
                     {/* Itinerary Header */}
                     <div className="mb-3">
-                      <h3 className="font-semibold text-foreground text-lg mb-2">
-                        {itinerary.experienceName || itinerary.name || `Activity ${idx + 1}`}
-                      </h3>
+                      <div className="flex items-start gap-3 mb-2">
+                        {/* Experience Image */}
+                        {(itinerary.image || (itinerary.images && itinerary.images.length > 0)) && (
+                          <div className="flex-shrink-0 w-16 h-16 rounded overflow-hidden border border-border/20">
+                            <img
+                              src={itinerary.image || itinerary.images[0]}
+                              alt={itinerary.experienceName || itinerary.name || 'Experience'}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.style.display = 'none'
+                              }}
+                            />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-foreground text-lg">
+                            {itinerary.experienceName || itinerary.name || `Activity ${idx + 1}`}
+                          </h3>
+                        </div>
+                      </div>
                       <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
                         {itinerary.day && (
                           <div className="flex items-center gap-1">

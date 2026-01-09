@@ -77,104 +77,108 @@ const ImageUpload = ({
   }
 
   return (
-    <div className={`space-y-4 ${className}`}>
+    <div className={`space-y-3 ${className}`}>
       {/* Upload Area */}
-      <div
-        className={`
-          relative border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all duration-200
-          ${dragActive 
-            ? 'border-primary bg-primary/5' 
-            : 'border-border hover:border-primary/50 hover:bg-muted/50'
-          }
-          ${images.length >= maxImages || uploading ? 'opacity-50 cursor-not-allowed' : ''}
-        `}
-        onDragEnter={handleDrag}
-        onDragLeave={handleDrag}
-        onDragOver={handleDrag}
-        onDrop={handleDrop}
-        onClick={images.length >= maxImages || uploading ? undefined : openFileDialog}
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple={maxImages > 1}
-          accept={acceptedTypes.join(',')}
-          onChange={handleChange}
-          className="hidden"
-          disabled={images.length >= maxImages || uploading}
-        />
-        
-        <div className="space-y-3">
-          <div className="mx-auto w-12 h-12 bg-muted rounded-xl flex items-center justify-center">
-            <Upload size={24} className="text-muted-foreground" />
-          </div>
+      {images.length === 0 ? (
+        <div
+          className={`
+            relative border border-dashed rounded-lg p-5 text-center cursor-pointer transition-colors
+            ${dragActive 
+              ? 'border-primary/60 bg-primary/5' 
+              : 'border-border hover:border-primary/40 hover:bg-muted/30'
+            }
+            ${uploading ? 'opacity-50 cursor-not-allowed' : ''}
+          `}
+          onDragEnter={handleDrag}
+          onDragLeave={handleDrag}
+          onDragOver={handleDrag}
+          onDrop={handleDrop}
+          onClick={uploading ? undefined : openFileDialog}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple={maxImages > 1}
+            accept={acceptedTypes.join(',')}
+            onChange={handleChange}
+            className="hidden"
+            disabled={uploading}
+          />
           
-          <div>
-            <p className="text-sm font-medium text-foreground">
-              {placeholder}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {maxImages > 1 ? `Up to ${maxImages} images` : 'Single image'} • Max {maxSize}MB each
-            </p>
+          <div className="flex flex-col items-center gap-2.5">
+            <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+              <Upload size={18} className="text-muted-foreground" />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-foreground">
+                {placeholder}
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                {maxImages > 1 ? `Up to ${maxImages} photos` : 'Single photo'} • {maxSize}MB max
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      ) : images.length < maxImages && !uploading && (
+        <button
+          onClick={openFileDialog}
+          className="w-full py-2 text-xs text-muted-foreground hover:text-foreground border border-dashed border-border/50 hover:border-primary/40 rounded-lg transition-colors"
+        >
+          + Add more photos
+        </button>
+      )}
 
       {/* Preview Images */}
-      <AnimatePresence>
-        {images.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="space-y-3"
-          >
-            <h4 className="text-sm font-medium text-foreground">Preview</h4>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {images.map((image, index) => (
+      {images.length > 0 && (
+        <div className="space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground font-medium">
+              {images.length} {images.length === 1 ? 'photo' : 'photos'}
+            </span>
+            {uploading && (
+              <div className="flex items-center gap-1.5 text-xs text-blue-600 font-medium">
                 <motion.div
-                  key={index}
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  className="relative group"
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
                 >
-                  <div className="aspect-square rounded-lg overflow-hidden bg-muted">
-                    <img
-                      src={URL.createObjectURL(image)}
-                      alt={`Preview ${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    className="absolute -top-2 -right-2 w-6 h-6 p-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => removeImage(index)}
-                  >
-                    <X size={12} />
-                  </Button>
-                  
-                  <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-1 rounded-b-lg">
-                    {Math.round(image.size / 1024)}KB
-                  </div>
+                  <Loader2 size={11} />
                 </motion.div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Auto-upload status */}
-      {images.length > 0 && uploading && (
-        <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-          <p className="text-sm text-blue-600 font-medium flex items-center">
-            <Loader2 size={16} className="mr-2 animate-spin" />
-            Auto-uploading {images.length} image{images.length > 1 ? 's' : ''}...
-          </p>
+                <span>Uploading</span>
+              </div>
+            )}
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {images.map((image, index) => (
+              <div
+                key={`${image.name}-${index}`}
+                className="relative group"
+              >
+                <div className="aspect-square rounded-md overflow-hidden bg-muted/30 border border-border/30 group-hover:border-border/60 transition-colors">
+                  <img
+                    src={URL.createObjectURL(image)}
+                    alt={`Preview ${index + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                
+                {!uploading && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      removeImage(index)
+                    }}
+                    className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 hover:bg-black backdrop-blur-[2px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-sm"
+                    type="button"
+                  >
+                    <X size={11} className="text-white" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
+
     </div>
   )
 }

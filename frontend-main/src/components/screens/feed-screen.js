@@ -695,26 +695,54 @@ export default function FeedScreen() {
       </div>
 
       {/* Create Post Modal */}
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {showCreateModal && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-foreground/10 backdrop-blur-md z-50 flex items-center justify-center p-2 lg:p-4"
+            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-2 lg:p-4"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setShowCreateModal(false)
+                setPostType('Post')
+                setSelectedTrip(null)
+                setCreateForm({
+                  caption: '',
+                  location: '',
+                  images: [],
+                  tripDate: '',
+                  tripCapacity: '',
+                  tripLocation: '',
+                  tripCoordinates: null
+                })
+              }
+            }}
           >
             <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="bg-card rounded-xl lg:rounded-2xl border border-border/50 shadow-xl w-full max-w-2xl max-h-[95vh] lg:max-h-[90vh] overflow-y-auto"
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{
+                type: "spring",
+                stiffness: 300,
+                damping: 30,
+                duration: 0.4
+              }}
+              className="bg-card rounded-lg border border-border/40 shadow-xl w-full max-w-md max-h-[85vh] overflow-hidden flex flex-col"
             >
               {/* Modal Header */}
-              <div className="flex items-center justify-between p-3 lg:p-4 border-b border-border">
-                <h2 className="text-lg lg:text-xl font-bold text-foreground">Create Post</h2>
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.1, duration: 0.2 }}
+                className="flex items-center justify-between px-4 py-3 border-b border-border/40"
+              >
+                <h2 className="text-lg font-semibold text-foreground">Create Post</h2>
                 <Button
                   variant="ghost"
-                  size="icon"
+                  size="icon-sm"
                   onClick={() => {
                     setShowCreateModal(false)
                     setPostType('Post')
@@ -729,206 +757,220 @@ export default function FeedScreen() {
                       tripCoordinates: null
                     })
                   }}
-                  className="text-muted-foreground hover:text-foreground"
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
                 >
-                  <X size={18} />
+                  <X size={16} />
                 </Button>
-              </div>
+              </motion.div>
 
               {/* Post Type Selector */}
-              <div className="px-3 lg:px-4 pt-3 lg:pt-4 border-b border-border">
-                <div className="flex gap-2">
+              <div className="px-4 py-2.5 border-b border-border/40">
+                <div className="relative flex gap-1 bg-muted/50 p-0.5 rounded-lg">
+                  <motion.div
+                    className="absolute inset-y-0.5 left-0.5 bg-card rounded-md shadow-sm"
+                    initial={false}
+                    animate={{
+                      x: postType === 'Post' ? 0 : 'calc(100% - 0.25rem)',
+                      width: 'calc(50% - 0.25rem)'
+                    }}
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                  />
                   <Button
-                    variant={postType === 'Post' ? 'default' : 'outline'}
+                    variant={postType === 'Post' ? 'default' : 'ghost'}
                     size="sm"
                     onClick={() => setPostType('Post')}
-                    className="flex-1"
+                    className="flex-1 relative z-10 h-8 text-xs"
                   >
-                    Regular Post
+                    Post
                   </Button>
                   <Button
-                    variant={postType === 'Trip' ? 'default' : 'outline'}
+                    variant={postType === 'Trip' ? 'default' : 'ghost'}
                     size="sm"
                     onClick={() => setPostType('Trip')}
-                    className="flex-1"
+                    className="flex-1 relative z-10 h-8 text-xs"
                   >
-                    <Plane size={16} className="mr-2" />
-                    Post My Trip
+                    <Plane size={14} className="mr-1.5" />
+                    Trip
                   </Button>
                 </div>
               </div>
 
               {/* Modal Content */}
-              <div className="p-3 lg:p-4 space-y-4 lg:space-y-6">
-                {/* Image Upload */}
-                <div className="space-y-3">
-                  <h3 className="text-sm font-semibold text-foreground">Add Photos</h3>
-                  <ImageUpload
-                    onImagesChange={handleImagesChange}
-                    maxImages={10}
-                    maxSize={5}
-                    placeholder="Upload photos for your post"
-                    uploading={uploading}
-                  />
-                  
-                  {/* Show upload status */}
-                  {uploading && (
-                    <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                      <p className="text-sm text-blue-600 font-medium flex items-center">
-                        <Loader2 size={16} className="mr-2 animate-spin" />
-                        Uploading images...
-                      </p>
-                    </div>
-                  )}
-                  
-                  {createForm.images.length > 0 && !uploading && (
-                    <div className="mt-3 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
-                      <p className="text-sm text-green-600 font-medium">
-                        ✅ {createForm.images.length} image{createForm.images.length > 1 ? 's' : ''} uploaded successfully
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Caption */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Caption</label>
-                  <textarea
-                    value={createForm.caption}
-                    onChange={(e) => setCreateForm({ ...createForm, caption: e.target.value })}
-                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-                    rows={4}
-                    placeholder="What's on your mind? Share your travel experience..."
-                  />
-                </div>
-
-                {/* Location */}
-                {postType === 'Post' && (
+              <div className="flex-1 overflow-y-auto">
+                <div className="p-4 space-y-4">
+                  {/* Image Upload */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">Location (Optional)</label>
-                    <input
-                      type="text"
-                      value={createForm.location}
-                      onChange={(e) => setCreateForm({ ...createForm, location: e.target.value })}
-                      className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                      placeholder="Where was this taken?"
+                    <ImageUpload
+                      onImagesChange={handleImagesChange}
+                      maxImages={10}
+                      maxSize={5}
+                      placeholder="Add photos"
+                      uploading={uploading}
                     />
                   </div>
-                )}
 
-                {/* Trip Post Fields */}
-                {postType === 'Trip' && (
-                  <div className="space-y-4 p-4 bg-primary/5 border border-primary/20 rounded-lg">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Plane size={18} className="text-primary" />
-                      <h3 className="text-sm font-semibold text-foreground">Trip Details</h3>
+                  {/* Caption */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-foreground">Caption</label>
+                      <span className="text-xs text-muted-foreground">{createForm.caption.length}/500</span>
                     </div>
-                    
-                    {/* Trip Selector */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-foreground flex items-center gap-2">
-                        <Plane size={14} />
-                        Select Trip <span className="text-red-500">*</span>
-                      </label>
-                      {loadingTrips ? (
-                        <div className="flex items-center justify-center py-4">
-                          <Loader2 size={20} className="animate-spin text-primary" />
-                          <span className="ml-2 text-sm text-muted-foreground">Loading your trips...</span>
-                        </div>
-                      ) : userTrips.length === 0 ? (
-                        <div className="p-4 bg-muted/50 rounded-lg border border-border text-center">
-                          <p className="text-sm text-muted-foreground mb-2">No trips found</p>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => router.push('/labs')}
-                            className="text-xs"
-                          >
-                            Create a Trip in Labs
-                          </Button>
-                        </div>
-                      ) : (
-                        <select
-                          value={selectedTrip ? (selectedTrip._id || selectedTrip.id) : ''}
-                          onChange={(e) => handleTripSelect(e.target.value)}
-                          className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                          required
-                        >
-                          <option value="">-- Select a trip to post --</option>
-                          {userTrips.map((trip) => (
-                            <option key={trip._id || trip.id} value={trip._id || trip.id}>
-                              {trip.name} - {trip.location || trip.destination} ({new Date(trip.startDate).toLocaleDateString()})
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
+                    <textarea
+                      value={createForm.caption}
+                      onChange={(e) => {
+                        if (e.target.value.length <= 500) {
+                          setCreateForm({ ...createForm, caption: e.target.value })
+                        }
+                      }}
+                      className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50 transition-all resize-none"
+                      rows={3}
+                      placeholder="What's on your mind?"
+                    />
+                  </div>
 
-                    {/* Selected Trip Details */}
-                    {selectedTrip && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="p-3 bg-background rounded-lg border border-border space-y-2"
-                      >
-                        <div className="flex items-center gap-2 text-sm text-foreground">
-                          <MapPin size={14} className="text-muted-foreground" />
-                          <span className="font-medium">{selectedTrip.location || selectedTrip.destination}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Calendar size={12} />
-                          <span>
-                            {new Date(selectedTrip.startDate).toLocaleDateString()} - {new Date(selectedTrip.endDate).toLocaleDateString()}
-                          </span>
-                        </div>
-                        {selectedTrip.itinerary && selectedTrip.itinerary.length > 0 && (
-                          <div className="text-xs text-muted-foreground">
-                            {selectedTrip.itinerary.length} activities planned
-                          </div>
-                        )}
-                      </motion.div>
-                    )}
-
-                    {/* Capacity Input */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-foreground flex items-center gap-2">
-                        <Users size={14} />
-                        Capacity <span className="text-red-500">*</span>
+                  {/* Location */}
+                  {postType === 'Post' && (
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                        <MapPin size={12} className="text-muted-foreground" />
+                        Location <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
                       </label>
                       <input
-                        type="number"
-                        value={createForm.tripCapacity}
-                        onChange={(e) => setCreateForm({ ...createForm, tripCapacity: e.target.value })}
-                        min="1"
-                        max="50"
-                        className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                        placeholder="How many people can join?"
-                        required
+                        type="text"
+                        value={createForm.location}
+                        onChange={(e) => setCreateForm({ ...createForm, location: e.target.value })}
+                        className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50 transition-all"
+                        placeholder="Where was this taken?"
                       />
                     </div>
-                  </div>
-                )}
+                  )}
+
+                  {/* Trip Post Fields */}
+                  {postType === 'Trip' && (
+                    <motion.div 
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="space-y-3 p-3 bg-primary/5 border border-primary/20 rounded-lg"
+                    >
+                    
+                      {/* Trip Selector */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                          <Plane size={12} />
+                          Select Trip <span className="text-red-500">*</span>
+                        </label>
+                        {loadingTrips ? (
+                          <div className="flex items-center justify-center py-3">
+                            <Loader2 size={16} className="animate-spin text-primary" />
+                            <span className="ml-2 text-xs text-muted-foreground">Loading...</span>
+                          </div>
+                        ) : userTrips.length === 0 ? (
+                          <div className="p-3 bg-muted/50 rounded-lg border border-border text-center">
+                            <p className="text-xs text-muted-foreground mb-2">No trips found</p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => router.push('/labs')}
+                              className="text-xs h-7"
+                            >
+                              Create Trip
+                            </Button>
+                          </div>
+                        ) : (
+                          <select
+                            value={selectedTrip ? (selectedTrip._id || selectedTrip.id) : ''}
+                            onChange={(e) => handleTripSelect(e.target.value)}
+                            className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                            required
+                          >
+                            <option value="">Select a trip...</option>
+                            {userTrips.map((trip) => (
+                              <option key={trip._id || trip.id} value={trip._id || trip.id}>
+                                {trip.name} - {trip.location || trip.destination}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+
+                      {/* Selected Trip Details */}
+                      {selectedTrip && (
+                        <div className="p-2 bg-background rounded-lg border border-border space-y-1.5">
+                          <div className="flex items-center gap-1.5 text-xs text-foreground">
+                            <MapPin size={11} className="text-muted-foreground" />
+                            <span className="font-medium">{selectedTrip.location || selectedTrip.destination}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <Calendar size={11} />
+                            <span>
+                              {new Date(selectedTrip.startDate).toLocaleDateString()} - {new Date(selectedTrip.endDate).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Capacity Input */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                          <Users size={12} />
+                          Capacity <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          value={createForm.tripCapacity}
+                          onChange={(e) => setCreateForm({ ...createForm, tripCapacity: e.target.value })}
+                          min="1"
+                          max="50"
+                          className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                          placeholder="How many people?"
+                          required
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
               </div>
 
               {/* Modal Footer */}
-              <div className="flex gap-2 lg:gap-3 p-3 lg:p-4 border-t border-border">
+              <div className="flex gap-2 px-4 py-3 border-t border-border/40">
                 <Button
                   variant="outline"
-                  onClick={() => setShowCreateModal(false)}
-                  className="flex-1"
+                  onClick={() => {
+                    setShowCreateModal(false)
+                    setPostType('Post')
+                    setSelectedTrip(null)
+                    setCreateForm({
+                      caption: '',
+                      location: '',
+                      images: [],
+                      tripDate: '',
+                      tripCapacity: '',
+                      tripLocation: '',
+                      tripCoordinates: null
+                    })
+                  }}
+                  className="flex-1 h-9 text-sm"
+                  disabled={uploading}
                 >
                   Cancel
                 </Button>
                 <Button
                   onClick={handleCreatePost}
                   disabled={uploading || !createForm.caption.trim()}
-                  className="flex-1"
+                  className="flex-1 h-9 text-sm"
                 >
                   {uploading ? (
-                    <>
-                      <Loader2 size={16} className="mr-2 animate-spin" />
-                      Creating...
-                    </>
+                    <div className="flex items-center gap-2">
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                      >
+                        <Loader2 size={14} />
+                      </motion.div>
+                      <span>Creating...</span>
+                    </div>
                   ) : (
                     'Create Post'
                   )}

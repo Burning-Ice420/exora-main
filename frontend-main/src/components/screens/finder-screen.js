@@ -572,23 +572,38 @@ export default function FinderScreen() {
                   <div className="space-y-2">
                     {selectedTrip.itinerary.map((item, index) => (
                       <div key={index} className="glass-effect rounded-lg p-3 border border-border/20">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <span className="text-sm font-medium text-foreground">
-                              {item.experienceName || item.name}
-                            </span>
-                            {item.timeSlot && (
-                              <div className="flex items-center gap-1 mt-1">
-                                <Clock size={12} className="text-primary" />
-                                <span className="text-xs text-primary capitalize">{item.timeSlot}</span>
+                        <div className="flex items-center gap-3">
+                          {/* Experience Image */}
+                          {(item.image || (item.images && item.images.length > 0)) && (
+                            <div className="flex-shrink-0 w-12 h-12 rounded overflow-hidden border border-border/20">
+                              <img
+                                src={item.image || item.images[0]}
+                                alt={item.experienceName || item.name || 'Experience'}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.target.style.display = 'none'
+                                }}
+                              />
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between flex-1 min-w-0">
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm font-medium text-foreground block truncate">
+                                {item.experienceName || item.name}
+                              </span>
+                              {item.timeSlot && (
+                                <div className="flex items-center gap-1 mt-1">
+                                  <Clock size={12} className="text-primary" />
+                                  <span className="text-xs text-primary capitalize">{item.timeSlot}</span>
+                                </div>
+                              )}
+                            </div>
+                            {item.price && item.price > 0 && (
+                              <div className="text-xs text-muted-foreground flex-shrink-0 ml-2">
+                                ₹{item.price}
                               </div>
                             )}
                           </div>
-                          {item.price && item.price > 0 && (
-                            <div className="text-xs text-muted-foreground">
-                              ₹{item.price}
-                            </div>
-                          )}
                         </div>
                       </div>
                     ))}

@@ -127,7 +127,18 @@ export default function LabsScreen() {
         ...experience,
         id: experienceId,
         _id: undefined,
+        // Explicitly preserve image fields
+        image: experience.image || null,
+        images: Array.isArray(experience.images) ? experience.images.filter(img => img && typeof img === 'string') : (experience.images || [])
       }
+      
+      console.log('Adding experience to itinerary:', {
+        experienceName: normalizedExperience.experienceName || normalizedExperience.name,
+        hasImage: !!normalizedExperience.image,
+        image: normalizedExperience.image,
+        hasImages: !!normalizedExperience.images,
+        imagesLength: normalizedExperience.images?.length || 0
+      })
       
       const updatedTrip = {
         ...trip,
@@ -176,6 +187,36 @@ export default function LabsScreen() {
       const savedBlocks = []
       for (const experience of trip.itinerary) {
         try {
+          // Extract location and coordinates from experience
+          let locationName = experience.experienceName || experience.name || trip.location
+          let locationAddress = typeof experience.location === 'string' 
+            ? experience.location 
+            : experience.location?.address || experience.place?.formatted_address || trip.location
+          let locationCoords = null
+          
+          // Extract coordinates from various formats
+          if (experience.coordinates?.length === 2) {
+            locationCoords = {
+              latitude: experience.coordinates[0],
+              longitude: experience.coordinates[1]
+            }
+          } else if (experience.latitude !== undefined && experience.longitude !== undefined) {
+            locationCoords = {
+              latitude: experience.latitude,
+              longitude: experience.longitude
+            }
+          } else if (experience.coordinates?.latitude !== undefined && experience.coordinates?.longitude !== undefined) {
+            locationCoords = {
+              latitude: experience.coordinates.latitude,
+              longitude: experience.coordinates.longitude
+            }
+          } else if (experience.place?.geometry?.location) {
+            locationCoords = {
+              latitude: experience.place.geometry.location.lat || experience.place.geometry.location.latitude,
+              longitude: experience.place.geometry.location.lng || experience.place.geometry.location.longitude
+            }
+          }
+          
           const blockData = {
             title: experience.experienceName || experience.name,
             destination: trip.location,
@@ -183,10 +224,13 @@ export default function LabsScreen() {
             type: 'Activity',
             description: `Experience: ${experience.experienceName || experience.name}`,
             location: {
-              name: trip.location,
-              address: trip.location,
-              city: trip.location.split(',')[0] || trip.location,
-              country: trip.location.split(',')[1]?.trim() || 'India'
+              name: locationName,
+              address: locationAddress,
+              city: locationAddress.split(',')[0] || trip.location.split(',')[0] || trip.location,
+              country: locationAddress.split(',').pop()?.trim() || trip.location.split(',').pop()?.trim() || 'India',
+              ...(locationCoords && {
+                coordinates: locationCoords
+              })
             },
             timing: {
               startDate: new Date(trip.startDate),
@@ -246,6 +290,53 @@ export default function LabsScreen() {
         }
       }
       
+      // Log itinerary items to verify images are included
+      console.log('=== SAVING TRIP - ITINERARY ITEMS (BEFORE PROCESSING) ===')
+      trip.itinerary.forEach((item, index) => {
+        console.log(`Itinerary Item ${index}:`, {
+          id: item.id,
+          experienceName: item.experienceName,
+          hasImage: !!item.image,
+          image: item.image,
+          hasImages: !!item.images,
+          imagesLength: item.images?.length || 0,
+          images: item.images,
+          hasPlacePhotos: !!item.place?.photos,
+          placePhotosLength: item.place?.photos?.length || 0
+        })
+      })
+      
+      // Process itinerary to ensure images are included
+      const processedItinerary = trip.itinerary.map(item => {
+        // Start with all item fields
+        const processed = { ...item }
+        
+        // Ensure images array exists and is valid
+        if (Array.isArray(item.images) && item.images.length > 0) {
+          processed.images = item.images.filter(img => img && typeof img === 'string')
+          processed.image = processed.images[0] || item.image || null
+        } else if (item.image) {
+          processed.image = item.image
+          processed.images = [item.image]
+        } else {
+          // If no images, try to extract from place.photos if available
+          // This is a fallback - frontend should have already extracted them
+          processed.images = []
+          processed.image = null
+        }
+        
+        return processed
+      })
+      
+      console.log('=== ITINERARY ITEMS (AFTER PROCESSING) ===')
+      processedItinerary.forEach((item, index) => {
+        console.log(`Processed Item ${index}:`, {
+          experienceName: item.experienceName,
+          hasImage: !!item.image,
+          imagesLength: item.images?.length || 0
+        })
+      })
+      
       // Create a simple trip record (optional - just for reference)
       const tripData = {
         name: trip.name,
@@ -255,9 +346,19 @@ export default function LabsScreen() {
         budget: trip.budget,
         visibility: trip.visibility,
         description: `Trip with ${savedBlocks.length} activities`,
-        itinerary: trip.itinerary,
+        itinerary: processedItinerary,
         startCoordinates: trip.startCoordinates || null
       }
+      
+      console.log('Trip data being sent to backend:', {
+        itineraryCount: tripData.itinerary.length,
+        itineraryItemsWithImages: tripData.itinerary.filter(item => item.image || (item.images && item.images.length > 0)).length,
+        sampleItem: tripData.itinerary[0] ? {
+          name: tripData.itinerary[0].experienceName,
+          hasImage: !!tripData.itinerary[0].image,
+          imagesCount: tripData.itinerary[0].images?.length || 0
+        } : null
+      })
       
       const savedTrip = await api.createTrip(tripData)
       console.log("Trip saved:", savedTrip)
@@ -302,7 +403,12 @@ export default function LabsScreen() {
           budget: tripToPostData.budget || 0,
           visibility: 'public',
           description: tripToPostData.description || `Join me on this trip to ${tripToPostData.location}!`,
-          itinerary: tripToPostData.itinerary || [],
+          itinerary: (tripToPostData.itinerary || []).map(item => ({
+            ...item,
+            // Ensure image fields are explicitly included
+            image: item.image || null,
+            images: Array.isArray(item.images) ? item.images.filter(img => img && typeof img === 'string') : []
+          })),
           startCoordinates: tripToPostData.startCoordinates || null
         }
         

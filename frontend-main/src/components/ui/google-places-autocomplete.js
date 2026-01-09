@@ -139,13 +139,45 @@ export default function GooglePlacesAutocomplete({
 
     const request = {
       placeId: placeId,
-      fields: ['formatted_address', 'geometry', 'name'],
+      fields: [
+        'formatted_address', 
+        'geometry', 
+        'name',
+        'photos',
+        'place_id',
+        'types',
+        'rating',
+        'user_ratings_total',
+        'icon',
+        'icon_background_color',
+        'icon_mask_base_uri',
+        'business_status',
+        'opening_hours',
+        'price_level',
+        'reviews',
+        'website',
+        'url'
+      ],
     }
 
     placesServiceRef.current.getDetails(request, (place, status) => {
       setLoading(false)
       
       if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
+        // Log the full Google Places API response
+        console.log('=== GOOGLE PLACES API RESPONSE ===')
+        console.log('Place Object:', place)
+        console.log('Place Keys:', Object.keys(place))
+        console.log('Photos Array:', place.photos)
+        console.log('Photos Length:', place.photos?.length || 0)
+        if (place.photos && place.photos.length > 0) {
+          console.log('First Photo Object:', place.photos[0])
+          console.log('First Photo Type:', typeof place.photos[0])
+          console.log('First Photo Methods:', Object.getOwnPropertyNames(place.photos[0]))
+          console.log('First Photo Constructor:', place.photos[0]?.constructor?.name)
+        }
+        console.log('=== END GOOGLE PLACES API RESPONSE ===')
+        
         const address = place.formatted_address || description
         const lat = place.geometry?.location?.lat()
         const lng = place.geometry?.location?.lng()
@@ -156,6 +188,96 @@ export default function GooglePlacesAutocomplete({
           return
         }
 
+        // Extract photo URLs and references if available
+        let photoUrls = []
+        let photoReferences = []
+        if (place.photos && place.photos.length > 0) {
+          console.log('Extracting photo URLs from', place.photos.length, 'photos')
+          place.photos.forEach((photo, index) => {
+            try {
+              // Extract photo_reference - it's a property on the photo object
+              const photoRef = photo.photo_reference || (photo.getUrl && photo.getUrl.toString().includes('photo_reference') ? null : null)
+              if (photoRef) {
+                photoReferences.push(photoRef)
+              }
+              
+              // Check if getUrl is a function
+              if (typeof photo.getUrl === 'function') {
+                const url = photo.getUrl({ maxWidth: 800, maxHeight: 800 })
+                console.log(`Photo ${index} URL extracted:`, url)
+                photoUrls.push(url)
+              } else {
+                console.warn(`Photo ${index} does not have getUrl method`)
+              }
+            } catch (e) {
+              console.error(`Error getting photo URL for photo ${index}:`, e)
+            }
+          })
+          
+          // Also try to access photo_reference directly from photo objects
+          // Google Places photo objects have photo_reference as a property
+          place.photos.forEach((photo, index) => {
+            try {
+              // Try different ways to access photo_reference
+              const ref = photo.photo_reference || 
+                         (photo.getUrl ? (() => {
+                           // Try to extract from getUrl function if possible
+                           try {
+                             const url = photo.getUrl({ maxWidth: 1, maxHeight: 1 })
+                             // Extract photo_reference from URL if it's in the format
+                             const match = url.match(/photo_reference=([^&]+)/)
+                             return match ? match[1] : null
+                           } catch (e) {
+                             return null
+                           }
+                         })() : null)
+              
+              if (ref && !photoReferences.includes(ref)) {
+                photoReferences.push(ref)
+              }
+            } catch (e) {
+              // Ignore errors
+            }
+          })
+          console.log('Extracted photo URLs:', photoUrls.length)
+          console.log('Extracted photo references:', photoReferences.length)
+        } else {
+          console.log('No photos found in place object')
+        }
+        
+        // Store photo references and URLs in place object for backend extraction
+        // This ensures the backend can construct URLs even if frontend extraction fails
+        if (place.photos && place.photos.length > 0) {
+          place.photos = place.photos.map((photo, index) => {
+            if (photo && typeof photo === 'object') {
+              const photoObj = {
+                height: photo.height,
+                width: photo.width,
+                html_attributions: photo.html_attributions || []
+              }
+              
+              // Try to preserve photo_reference if it exists
+              try {
+                if (photo.photo_reference) {
+                  photoObj.photo_reference = photo.photo_reference
+                } else if (photoReferences[index]) {
+                  photoObj.photo_reference = photoReferences[index]
+                }
+              } catch (e) {
+                // photo_reference might not be accessible
+              }
+              
+              // Store the extracted URL if available
+              if (photoUrls[index]) {
+                photoObj.url = photoUrls[index]
+              }
+              
+              return photoObj
+            }
+            return photo
+          })
+        }
+
         // Call the onSelect callback with all the data
         if (onSelect) {
           onSelect({
@@ -163,6 +285,7 @@ export default function GooglePlacesAutocomplete({
             latitude: lat,
             longitude: lng,
             place: place,
+            photos: photoUrls, // Add extracted photo URLs
           })
         }
 

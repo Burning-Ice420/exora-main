@@ -203,6 +203,19 @@ export default function TripJoinModal({ isOpen, onClose, trip, onSuccess }) {
                             }`}>
                               {isSelected && <Check size={14} className="text-white" />}
                             </div>
+                            {/* Experience Image */}
+                            {(item.image || (item.images && item.images.length > 0)) && (
+                              <div className="flex-shrink-0 w-12 h-12 rounded overflow-hidden border border-border/20">
+                                <img
+                                  src={item.image || item.images[0]}
+                                  alt={item.experienceName || item.name || 'Experience'}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none'
+                                  }}
+                                />
+                              </div>
+                            )}
                             <div className="flex-1 min-w-0">
                               <h4 className="font-medium text-foreground text-sm">
                                 {item.experienceName || item.name || `Activity ${index + 1}`}

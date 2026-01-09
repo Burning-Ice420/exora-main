@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { Trash2, Clock } from "lucide-react"
+import { Trash2, Clock, GripVertical } from "lucide-react"
 
 // Helper functions for time calculations
 const parseDuration = (duration) => {
@@ -187,6 +187,13 @@ export default function TimelineCanvas({ trip, onRemoveExperience, onSelectExper
     setDraggedItem(experience)
     e.dataTransfer.effectAllowed = "move"
     
+    // Set the data that will be transferred
+    try {
+      e.dataTransfer.setData("application/json", JSON.stringify(experience))
+    } catch (error) {
+      console.error("Error setting drag data:", error)
+    }
+    
     // Create and set transparent drag image to hide browser default
     const dragImage = createDragImage(experience)
     e.dataTransfer.setDragImage(dragImage, 0, 0)
@@ -277,7 +284,14 @@ export default function TimelineCanvas({ trip, onRemoveExperience, onSelectExper
           endTime: endTime,
           // Keep timeSlot for backward compatibility but prioritize startTime
           timeSlot: startTime < 12 ? "morning" : startTime < 17 ? "afternoon" : startTime < 21 ? "evening" : "night",
+          // Explicitly preserve image fields
+          image: itemToAdd.image || null,
+          images: Array.isArray(itemToAdd.images) ? itemToAdd.images.filter(img => img && typeof img === 'string') : (itemToAdd.images || [])
         }
+        console.log('[Timeline Canvas] Adding item with images:', {
+          hasImage: !!updatedItem.image,
+          imagesCount: updatedItem.images?.length || 0
+        })
         onAddExperience(updatedItem)
       }
       setDraggedItem(null)
@@ -476,16 +490,27 @@ export default function TimelineCanvas({ trip, onRemoveExperience, onSelectExper
                             key={exp.id}
                             initial={{ opacity: 0, y: -5 }}
                             animate={{ 
-                              opacity: isDragging ? 0 : 1, 
+                              opacity: isDragging ? 0.5 : 1, 
                               y: 0,
-                              scale: isDragging ? 0.95 : 1
+                              scale: isDragging ? 0.98 : 1,
+                              zIndex: isDragging ? 50 : 1
                             }}
                             exit={{ opacity: 0, y: -5 }}
-                            draggable
-                            onDragStart={(e) => handleDragStart(e, exp)}
-                            onDragEnd={handleDragEnd}
-                            onClick={() => onSelectExperience(exp)}
-                            className="absolute group cursor-grab active:cursor-grabbing"
+                            draggable={true}
+                            onDragStart={(e) => {
+                              e.stopPropagation()
+                              handleDragStart(e, exp)
+                            }}
+                            onDragEnd={(e) => {
+                              e.stopPropagation()
+                              handleDragEnd(e)
+                            }}
+                            onClick={(e) => {
+                              // Don't select if clicking delete button
+                              if (e.target.closest('button')) return
+                              onSelectExperience(exp)
+                            }}
+                            className="absolute group cursor-grab active:cursor-grabbing select-none touch-none"
                             style={{
                               top: `${startPos}px`,
                               height: `${height}px`,
@@ -495,30 +520,64 @@ export default function TimelineCanvas({ trip, onRemoveExperience, onSelectExper
                             }}
                           >
                             {/* Google Calendar style event block */}
-                            <div className="h-full bg-primary/10 hover:bg-primary/15 border-l-2 border-primary rounded-sm p-1.5 flex flex-col justify-between transition-all duration-150 shadow-sm hover:shadow">
+                            <div 
+                              className="h-full bg-primary/10 hover:bg-primary/15 border-l-2 border-primary rounded-sm p-1.5 flex flex-col justify-between transition-all duration-150 shadow-sm hover:shadow-md"
+                              draggable={false}
+                              onDragStart={(e) => e.preventDefault()}
+                            >
                               <div className="flex items-start justify-between gap-1 flex-1 min-h-0">
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-medium text-foreground leading-tight truncate">
-                                    {exp.experienceName}
-                                  </p>
-                                  <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">
-                                    {formatTime(exp.startTime)} - {formatTime(exp.endTime)}
-                                  </p>
+                                <div className="flex items-start gap-1.5 flex-1 min-w-0">
+                                  {/* Experience Image */}
+                                  {(exp.image || (exp.images && exp.images.length > 0)) && (
+                                    <div className="flex-shrink-0 w-8 h-8 rounded overflow-hidden border border-border/20 pointer-events-none">
+                                      <img
+                                        src={exp.image || exp.images[0]}
+                                        alt={exp.experienceName || 'Experience'}
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                          e.target.style.display = 'none'
+                                        }}
+                                      />
+                                    </div>
+                                  )}
+                                  <div className="cursor-grab active:cursor-grabbing flex-shrink-0 mt-0.5 opacity-40 group-hover:opacity-60 transition-opacity pointer-events-none">
+                                    <GripVertical size={10} className="text-foreground" />
+                                  </div>
+                                  <div className="flex-1 min-w-0 cursor-grab active:cursor-grabbing pointer-events-none">
+                                    <p className="text-xs font-medium text-foreground leading-tight truncate">
+                                      {exp.experienceName}
+                                    </p>
+                                    <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">
+                                      {formatTime(exp.startTime)} - {formatTime(exp.endTime)}
+                                    </p>
+                                  </div>
                                 </div>
                                 <motion.button
                                   whileHover={{ scale: 1.1 }}
                                   whileTap={{ scale: 0.9 }}
                                   onClick={(e) => {
                                     e.stopPropagation()
+                                    e.preventDefault()
                                     onRemoveExperience(exp.id)
                                   }}
-                                  className="p-0.5 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-opacity opacity-0 group-hover:opacity-100 flex-shrink-0"
+                                  onMouseDown={(e) => {
+                                    // Prevent drag when clicking delete button
+                                    e.stopPropagation()
+                                  }}
+                                  onDragStart={(e) => {
+                                    // Prevent drag when clicking delete button
+                                    e.stopPropagation()
+                                    e.preventDefault()
+                                  }}
+                                  className="p-0.5 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-opacity opacity-0 group-hover:opacity-100 flex-shrink-0 cursor-pointer z-10"
+                                  style={{ pointerEvents: 'auto' }}
+                                  draggable={false}
                                 >
                                   <Trash2 size={10} />
                                 </motion.button>
                               </div>
                               {exp.price > 0 && (
-                                <p className="text-[10px] text-primary font-medium mt-0.5">₹{exp.price}</p>
+                                <p className="text-[10px] text-primary font-medium mt-0.5 pointer-events-none">₹{exp.price}</p>
                               )}
                             </div>
                           </motion.div>
