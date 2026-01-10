@@ -363,6 +363,10 @@ class ApiClient {
     return await this.request('/api/feed')
   }
 
+  async getSavedPosts() {
+    return await this.request('/api/feed/saved')
+  }
+
   async createFeedPost(postData) {
     return await this.request('/api/feed', {
       method: 'POST',

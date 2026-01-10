@@ -41,12 +41,17 @@ export default function FeedScreen() {
   const [showJoinModal, setShowJoinModal] = useState(false)
   const [selectedTripForJoin, setSelectedTripForJoin] = useState(null)
   const [loadingTrip, setLoadingTrip] = useState(false)
+  const [viewMode, setViewMode] = useState('all') // 'all' or 'saved'
   const { success, error } = useToast()
 
   // Load feed posts from backend
   useEffect(() => {
-    loadFeedPosts()
-  }, [])
+    if (viewMode === 'all') {
+      loadFeedPosts()
+    } else {
+      loadSavedPosts()
+    }
+  }, [viewMode])
 
   // Load user's trips when modal opens and trip type is selected
   useEffect(() => {
@@ -100,6 +105,21 @@ export default function FeedScreen() {
     }
   }
 
+  const loadSavedPosts = async () => {
+    try {
+      setLoading(true)
+      const response = await api.getSavedPosts()
+      if (response.success) {
+        setPosts(response.data)
+      }
+    } catch (error) {
+      console.error('Failed to load saved posts:', error)
+      error('Error', 'Failed to load saved posts. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const toggleLike = async (id) => {
     try {
       const response = await api.likePost(id)
@@ -123,8 +143,36 @@ export default function FeedScreen() {
     }
   }
 
-  const toggleSave = (id) => {
-    setPosts(posts.map((post) => (post.id === id ? { ...post, saved: !post.saved } : post)))
+  const toggleSave = async (id) => {
+    try {
+      const response = await api.savePost(id)
+      if (response.success) {
+        const updatedPost = { ...posts.find(p => p._id === id), saved: response.data.isSaved }
+        
+        if (response.data.isSaved) {
+          success('Post Saved', 'Post has been saved to your collection')
+        } else {
+          success('Post Unsaved', 'Post has been removed from your collection')
+          // If viewing saved posts and post was unsaved, remove it from the list
+          if (viewMode === 'saved') {
+            setPosts(posts.filter(post => post._id !== id))
+            return
+          }
+        }
+        
+        // Update the post in the list
+        setPosts(
+          posts.map((post) =>
+            post._id === id
+              ? { ...post, saved: response.data.isSaved }
+              : post
+          )
+        )
+      }
+    } catch (error) {
+      console.error('Failed to toggle save:', error)
+      error('Error', 'Failed to save post. Please try again.')
+    }
   }
 
   const toggleComments = (id) => {
@@ -277,19 +325,41 @@ export default function FeedScreen() {
       <div className="flex-1 overflow-y-auto pb-20 lg:pb-24 scrollbar-hide">
         {/* Header */}
         <div className="sticky top-0 z-10 border-b border-border/30 bg-background/95 backdrop-blur-md shadow-sm">
-          <div className="px-3 lg:px-4 py-3 lg:py-4 flex items-center justify-between">
-            <h1 className="text-xl lg:text-2xl font-bold text-foreground">exora</h1>
+          <div className="px-3 lg:px-4 py-3 lg:py-4">
+            <div className="flex items-center justify-between mb-3">
+              <h1 className="text-xl lg:text-2xl font-bold text-foreground">exora</h1>
+              <div className="flex gap-2">
+                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary">
+                  <Search size={20} />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="text-muted-foreground hover:text-primary"
+                  onClick={() => setShowCreateModal(true)}
+                >
+                  <Plus size={20} />
+                </Button>
+              </div>
+            </div>
+            {/* View Mode Tabs */}
             <div className="flex gap-2">
-              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary">
-                <Search size={20} />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="text-muted-foreground hover:text-primary"
-                onClick={() => setShowCreateModal(true)}
+              <Button
+                variant={viewMode === 'all' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('all')}
+                className={`text-sm ${viewMode === 'all' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
               >
-                <Plus size={20} />
+                All Posts
+              </Button>
+              <Button
+                variant={viewMode === 'saved' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('saved')}
+                className={`text-sm flex items-center gap-1.5 ${viewMode === 'saved' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                <Bookmark size={14} fill={viewMode === 'saved' ? 'currentColor' : 'none'} />
+                Saved
               </Button>
             </div>
           </div>
@@ -321,21 +391,36 @@ export default function FeedScreen() {
               className="text-center py-16 space-y-4"
             >
               <div className="w-24 h-24 mx-auto bg-muted rounded-full flex items-center justify-center text-4xl">
-                📱
+                {viewMode === 'saved' ? '🔖' : '📱'}
               </div>
               <div className="space-y-2">
-                <h3 className="text-xl font-semibold text-foreground">No posts yet</h3>
+                <h3 className="text-xl font-semibold text-foreground">
+                  {viewMode === 'saved' ? 'No saved posts yet' : 'No posts yet'}
+                </h3>
                 <p className="text-muted-foreground text-sm max-w-md mx-auto">
-                  Be the first to share your travel experiences! Create a post to get started.
+                  {viewMode === 'saved' 
+                    ? 'Posts you save will appear here. Start saving posts you love!'
+                    : 'Be the first to share your travel experiences! Create a post to get started.'}
                 </p>
               </div>
-              <Button
-                onClick={() => setShowCreateModal(true)}
-                className="mt-4"
-              >
-                <Plus size={16} className="mr-2" />
-                Create Your First Post
-              </Button>
+              {viewMode === 'all' && (
+                <Button
+                  onClick={() => setShowCreateModal(true)}
+                  className="mt-4"
+                >
+                  <Plus size={16} className="mr-2" />
+                  Create Your First Post
+                </Button>
+              )}
+              {viewMode === 'saved' && (
+                <Button
+                  onClick={() => setViewMode('all')}
+                  variant="outline"
+                  className="mt-4"
+                >
+                  Browse All Posts
+                </Button>
+              )}
             </motion.div>
           ) : (
             posts.map((post, idx) => {
@@ -561,22 +646,55 @@ export default function FeedScreen() {
                   <MessageCircle size={18} />
                   <span className="text-xs lg:text-sm font-medium hidden sm:inline">Comment</span>
                 </motion.button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="flex-1 text-muted-foreground hover:text-green-500 hover:bg-green-500/5 smooth-transition"
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  onClick={async () => {
+                    try {
+                      const postUrl = `${window.location.origin}/post/${post._id}`
+                      const shareData = {
+                        title: `${post.userId?.name || 'User'}'s Post`,
+                        text: post.text || 'Check out this post on Exora!',
+                        url: postUrl
+                      }
+
+                      // Try Web Share API first (mobile-friendly)
+                      if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+                        await navigator.share(shareData)
+                        success('Shared', 'Post shared successfully!')
+                      } else {
+                        // Fallback: Copy to clipboard
+                        await navigator.clipboard.writeText(postUrl)
+                        success('Link Copied', 'Post link copied to clipboard!')
+                      }
+                    } catch (err) {
+                      // User cancelled or error occurred
+                      if (err.name !== 'AbortError') {
+                        console.error('Share error:', err)
+                        // Fallback to copy if share fails
+                        try {
+                          const postUrl = `${window.location.origin}/post/${post._id}`
+                          await navigator.clipboard.writeText(postUrl)
+                          success('Link Copied', 'Post link copied to clipboard!')
+                        } catch (copyErr) {
+                          error('Error', 'Failed to share post. Please try again.')
+                        }
+                      }
+                    }
+                  }}
+                  className="flex-1 flex items-center justify-center gap-1 lg:gap-2 py-2 rounded-lg smooth-transition text-muted-foreground hover:text-green-500 hover:bg-green-500/5"
                 >
                   <Share2 size={18} className="sm:mr-2" />
-                  <span className="text-xs lg:text-sm hidden sm:inline">Share</span>
-                </Button>
+                  <span className="text-xs lg:text-sm font-medium hidden sm:inline">Share</span>
+                </motion.button>
                 <motion.button
                   whileTap={{ scale: 0.95 }}
                   onClick={() => toggleSave(post._id)}
+                  disabled={!post._id}
                   className={`flex-1 flex items-center justify-center gap-1 lg:gap-2 py-2 rounded-lg smooth-transition ${
                     post.saved
                       ? "text-primary bg-primary/10"
                       : "text-muted-foreground hover:text-primary hover:bg-primary/5"
-                  }`}
+                  } ${!post._id ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
                   <Bookmark size={18} fill={post.saved ? "currentColor" : "none"} />
                   <span className="text-xs lg:text-sm font-medium hidden sm:inline">Save</span>
