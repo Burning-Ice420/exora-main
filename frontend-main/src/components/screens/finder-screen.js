@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, useCallback } from "react"
-import { MapPin, Users, Clock, Filter, X, Check, Loader2, UserPlus, MessageCircle, Send, Calendar } from "lucide-react"
+import { MapPin, Users, Clock, Filter, X, Check, Loader2, UserPlus, MessageCircle, Send, Calendar, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { motion, AnimatePresence } from "framer-motion"
 import api from "@/server/api"
@@ -38,6 +38,7 @@ export default function FinderScreen() {
   const [selectedItineraries, setSelectedItineraries] = useState([]) // Track selected itineraries for join request
   const [mapCenter, setMapCenter] = useState([15.2993, 74.1240]) // Goa, India coordinates
   const [mapZoom, setMapZoom] = useState(13)
+  const [currentImageIndex, setCurrentImageIndex] = useState(0)
 
   // Load public trips on component mount
   useEffect(() => {
@@ -110,8 +111,70 @@ export default function FinderScreen() {
     if (selectedTrip) {
       setSelectedItineraries([])
       setJoinMessage("")
+      setCurrentImageIndex(0) // Reset carousel when trip changes
     }
   }, [selectedTrip, user, isTripOwner])
+
+  // Collect all images from trip and itinerary
+  const allTripImages = useMemo(() => {
+    if (!selectedTrip) return []
+    
+    const images = []
+    
+    // Add trip main images
+    if (selectedTrip.image) {
+      images.push(selectedTrip.image)
+    }
+    if (selectedTrip.images && Array.isArray(selectedTrip.images)) {
+      selectedTrip.images.forEach(img => {
+        const imgUrl = img?.url || img
+        if (imgUrl && !images.includes(imgUrl)) {
+          images.push(imgUrl)
+        }
+      })
+    }
+    
+    // Add images from itinerary items
+    if (selectedTrip.itinerary && Array.isArray(selectedTrip.itinerary)) {
+      selectedTrip.itinerary.forEach(item => {
+        if (item.image) {
+          const imgUrl = item.image
+          if (!images.includes(imgUrl)) {
+            images.push(imgUrl)
+          }
+        }
+        if (item.images && Array.isArray(item.images)) {
+          item.images.forEach(img => {
+            const imgUrl = img?.url || img
+            if (imgUrl && !images.includes(imgUrl)) {
+              images.push(imgUrl)
+            }
+          })
+        }
+        if (item.place?.photos && Array.isArray(item.place.photos)) {
+          item.place.photos.forEach(photo => {
+            const imgUrl = photo?.url
+            if (imgUrl && !images.includes(imgUrl)) {
+              images.push(imgUrl)
+            }
+          })
+        }
+      })
+    }
+    
+    return images
+  }, [selectedTrip])
+
+  // Auto-rotate carousel every 3 seconds
+  useEffect(() => {
+    if (allTripImages.length <= 1) return
+    
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prev) => (prev + 1) % allTripImages.length)
+    }, 3000) // 3 seconds
+    
+    return () => clearInterval(interval)
+  }, [allTripImages.length])
 
   const handleRequestToJoin = async (experienceId) => {
     try {
@@ -444,27 +507,114 @@ export default function FinderScreen() {
                 </div>
               </div>
 
+              {/* Trip Images Carousel */}
+              {allTripImages.length > 0 ? (
+                <div className="w-full h-64 rounded-lg overflow-hidden border border-border/20 relative">
+                  <AnimatePresence mode="wait">
+                    <motion.img
+                      key={currentImageIndex}
+                      src={allTripImages[currentImageIndex]}
+                      alt={selectedTrip.name || 'Trip'}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.5 }}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.style.display = 'none'
+                      }}
+                    />
+                  </AnimatePresence>
+                  
+                  {/* Image Indicators */}
+                  {allTripImages.length > 1 && (
+                    <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 flex gap-2">
+                      {allTripImages.map((_, index) => (
+                        <button
+                          key={index}
+                          onClick={() => setCurrentImageIndex(index)}
+                          className={`h-2 rounded-full transition-all ${
+                            index === currentImageIndex
+                              ? 'w-8 bg-white'
+                              : 'w-2 bg-white/50 hover:bg-white/75'
+                          }`}
+                          aria-label={`Go to image ${index + 1}`}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Navigation Arrows */}
+                  {allTripImages.length > 1 && (
+                    <>
+                      <button
+                        onClick={() => setCurrentImageIndex((prev) => (prev - 1 + allTripImages.length) % allTripImages.length)}
+                        className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-all z-10"
+                        aria-label="Previous image"
+                      >
+                        <ChevronLeft size={20} />
+                      </button>
+                      <button
+                        onClick={() => setCurrentImageIndex((prev) => (prev + 1) % allTripImages.length)}
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-all z-10"
+                        aria-label="Next image"
+                      >
+                        <ChevronRight size={20} />
+                      </button>
+                    </>
+                  )}
+                </div>
+              ) : null}
+
               {/* Details */}
               <div className="space-y-3 border-t border-border pt-3">
                 <div className="grid grid-cols-2 gap-2">
                   <div className="glass-effect rounded-lg p-2">
                     <p className="text-xs text-muted-foreground mb-1">Start Date</p>
-                    <p className="text-xs font-semibold text-foreground">{new Date(selectedTrip.startDate).toLocaleDateString()}</p>
+                    <p className="text-xs font-semibold text-foreground">
+                      {selectedTrip.startDate 
+                        ? (() => {
+                            try {
+                              const date = new Date(selectedTrip.startDate)
+                              return isNaN(date.getTime()) ? 'Not set' : date.toLocaleDateString()
+                            } catch {
+                              return 'Not set'
+                            }
+                          })()
+                        : 'Not set'}
+                    </p>
                   </div>
                   <div className="glass-effect rounded-lg p-2">
                     <p className="text-xs text-muted-foreground mb-1">End Date</p>
-                    <p className="text-xs font-semibold text-foreground">{new Date(selectedTrip.endDate).toLocaleDateString()}</p>
+                    <p className="text-xs font-semibold text-foreground">
+                      {selectedTrip.endDate 
+                        ? (() => {
+                            try {
+                              const date = new Date(selectedTrip.endDate)
+                              return isNaN(date.getTime()) ? 'Not set' : date.toLocaleDateString()
+                            } catch {
+                              return 'Not set'
+                            }
+                          })()
+                        : 'Not set'}
+                    </p>
                   </div>
                   <div className="glass-effect rounded-lg p-2">
                     <p className="text-xs text-muted-foreground mb-1">Members</p>
                     <p className="text-xs font-semibold text-foreground">
-                      {selectedTrip.membersInvolved?.length || 0} {selectedTrip.membersInvolved?.length === 1 ? 'member' : 'members'}
+                      {Array.isArray(selectedTrip.membersInvolved) 
+                        ? `${selectedTrip.membersInvolved.length} ${selectedTrip.membersInvolved.length === 1 ? 'member' : 'members'}`
+                        : '0 members'}
                     </p>
                   </div>
                   <div className="glass-effect rounded-lg p-2">
                     <p className="text-xs text-muted-foreground mb-1">Budget</p>
                     <p className="text-xs font-semibold text-foreground">
-                      {selectedTrip.budget === 0 ? "Free" : `₹${selectedTrip.budget}`}
+                      {selectedTrip.budget === undefined || selectedTrip.budget === null 
+                        ? 'Not set' 
+                        : selectedTrip.budget === 0 
+                        ? "Free" 
+                        : `₹${selectedTrip.budget.toLocaleString('en-IN')}`}
                     </p>
                   </div>
                 </div>
@@ -498,6 +648,12 @@ export default function FinderScreen() {
                         return `${displayHour}:${m.toString().padStart(2, "0")} ${period}`
                       }
                       
+                      // Get image from various possible sources
+                      const itemImage = item.image || 
+                                       (item.images && item.images.length > 0 ? (item.images[0]?.url || item.images[0]) : null) ||
+                                       (item.place?.photos && item.place.photos.length > 0 ? item.place.photos[0]?.url : null) ||
+                                       (item.locationImage || null)
+                      
                       return (
                         <motion.div
                           key={itineraryId}
@@ -526,10 +682,34 @@ export default function FinderScreen() {
                             }`}>
                               {isSelected && <Check size={14} className="text-white" />}
                             </div>
+                            {itemImage ? (
+                              <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border border-border/20">
+                                <img
+                                  src={itemImage}
+                                  alt={item.experienceName || item.name || 'Experience'}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none'
+                                  }}
+                                />
+                              </div>
+                            ) : (
+                              <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 border border-border/20 flex items-center justify-center">
+                                <MapPin size={16} className="text-primary/60" />
+                              </div>
+                            )}
                             <div className="flex-1 min-w-0">
                               <h4 className="font-medium text-foreground text-sm">
                                 {item.experienceName || item.name || `Activity ${index + 1}`}
                               </h4>
+                              {item.location && (
+                                <div className="flex items-center gap-1 mt-1">
+                                  <MapPin size={12} className="text-muted-foreground" />
+                                  <span className="text-xs text-muted-foreground truncate">
+                                    {typeof item.location === 'string' ? item.location : (item.location?.name || item.location?.address || '')}
+                                  </span>
+                                </div>
+                              )}
                               <div className="flex flex-wrap gap-2 mt-2 text-xs text-muted-foreground">
                                 {item.day && (
                                   <div className="flex items-center gap-1">
@@ -548,7 +728,7 @@ export default function FinderScreen() {
                                   <span className="text-primary capitalize">{item.timeSlot}</span>
                                 )}
                                 {item.price > 0 && (
-                                  <span className="text-primary font-medium">₹{item.price}</span>
+                                  <span className="text-primary font-medium">₹{item.price.toLocaleString('en-IN')}</span>
                                 )}
                               </div>
                             </div>
@@ -570,43 +750,63 @@ export default function FinderScreen() {
                 <div className="space-y-2">
                   <h3 className="text-sm font-semibold text-foreground">Itinerary ({selectedTrip.itinerary.length} activities)</h3>
                   <div className="space-y-2">
-                    {selectedTrip.itinerary.map((item, index) => (
-                      <div key={index} className="glass-effect rounded-lg p-3 border border-border/20">
-                        <div className="flex items-center gap-3">
-                          {/* Experience Image */}
-                          {(item.image || (item.images && item.images.length > 0)) && (
-                            <div className="flex-shrink-0 w-12 h-12 rounded overflow-hidden border border-border/20">
-                              <img
-                                src={item.image || item.images[0]}
-                                alt={item.experienceName || item.name || 'Experience'}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.target.style.display = 'none'
-                                }}
-                              />
-                            </div>
-                          )}
-                          <div className="flex items-center justify-between flex-1 min-w-0">
-                            <div className="flex-1 min-w-0">
-                              <span className="text-sm font-medium text-foreground block truncate">
-                                {item.experienceName || item.name}
-                              </span>
-                              {item.timeSlot && (
-                                <div className="flex items-center gap-1 mt-1">
-                                  <Clock size={12} className="text-primary" />
-                                  <span className="text-xs text-primary capitalize">{item.timeSlot}</span>
+                    {selectedTrip.itinerary.map((item, index) => {
+                      // Get image from various possible sources
+                      const itemImage = item.image || 
+                                       (item.images && item.images.length > 0 ? (item.images[0]?.url || item.images[0]) : null) ||
+                                       (item.place?.photos && item.place.photos.length > 0 ? item.place.photos[0]?.url : null) ||
+                                       (item.locationImage || null)
+                      
+                      return (
+                        <div key={index} className="glass-effect rounded-lg p-3 border border-border/20">
+                          <div className="flex items-center gap-3">
+                            {/* Experience Image */}
+                            {itemImage ? (
+                              <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border border-border/20">
+                                <img
+                                  src={itemImage}
+                                  alt={item.experienceName || item.name || 'Experience'}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none'
+                                  }}
+                                />
+                              </div>
+                            ) : (
+                              <div className="flex-shrink-0 w-16 h-16 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 border border-border/20 flex items-center justify-center">
+                                <MapPin size={20} className="text-primary/60" />
+                              </div>
+                            )}
+                            <div className="flex items-center justify-between flex-1 min-w-0">
+                              <div className="flex-1 min-w-0">
+                                <span className="text-sm font-medium text-foreground block truncate">
+                                  {item.experienceName || item.name}
+                                </span>
+                                {item.location && (
+                                  <div className="flex items-center gap-1 mt-1">
+                                    <MapPin size={12} className="text-muted-foreground" />
+                                    <span className="text-xs text-muted-foreground truncate">
+                                      {typeof item.location === 'string' ? item.location : (item.location?.name || item.location?.address || '')}
+                                    </span>
+                                  </div>
+                                )}
+                                {item.timeSlot && (
+                                  <div className="flex items-center gap-1 mt-1">
+                                    <Clock size={12} className="text-primary" />
+                                    <span className="text-xs text-primary capitalize">{item.timeSlot}</span>
+                                  </div>
+                                )}
+                              </div>
+                              {item.price && item.price > 0 && (
+                                <div className="text-xs text-muted-foreground flex-shrink-0 ml-2">
+                                  ₹{item.price.toLocaleString('en-IN')}
                                 </div>
                               )}
                             </div>
-                            {item.price && item.price > 0 && (
-                              <div className="text-xs text-muted-foreground flex-shrink-0 ml-2">
-                                ₹{item.price}
-                              </div>
-                            )}
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               )}

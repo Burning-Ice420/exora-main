@@ -371,74 +371,102 @@ const Map = ({
     const userInitials = userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'
     const imageAlt = exp.name || exp.location || exp.destination || userName
     
+    const budget = exp.budget || 0
     const customIcon = L.divIcon({
         className: 'custom-marker',
         html: `
           <div class="marker-container" style="
             position: relative;
-            width: 56px;
-            height: 56px;
+            width: 80px;
+            height: 100px;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
           ">
-            ${displayImage ? `
+            <div style="
+              position: relative;
+              width: 60px;
+              height: 60px;
+              border-radius: 50% 50% 50% 0;
+              transform: rotate(-45deg);
+              border: 3px solid white;
+              box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4), 0 2px 4px rgba(0,0,0,0.2);
+              overflow: hidden;
+              background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 50%, #93c5fd 100%);
+            ">
               <div style="
-                width: 48px;
-                height: 48px;
-                border-radius: 50%;
-                border: 3px solid white;
-                box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4), 0 2px 4px rgba(0,0,0,0.2);
-                overflow: hidden;
-                background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #4f46e5 100%);
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%) rotate(45deg);
+                width: 100%;
+                height: 100%;
                 display: flex;
                 align-items: center;
                 justify-content: center;
               ">
-                <img 
-                  src="${displayImage}" 
-                  alt="${imageAlt}"
-                  style="
+                ${displayImage ? `
+                  <img 
+                    src="${displayImage}" 
+                    alt="${imageAlt}"
+                    style="
+                      width: 100%;
+                      height: 100%;
+                      object-fit: cover;
+                    "
+                    onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:16px\\'>${userInitials}</div>'"
+                  />
+                ` : `
+                  <div style="
                     width: 100%;
                     height: 100%;
-                    object-fit: cover;
-                  "
-                  onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:16px\\'>${userInitials}</div>'"
-                />
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: white;
+                    font-weight: bold;
+                    font-size: 18px;
+                  ">${userInitials}</div>
+                `}
               </div>
-            ` : `
+            </div>
+            ${budget > 0 ? `
               <div style="
-                width: 48px;
-                height: 48px;
-                border-radius: 50%;
-                background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #4f46e5 100%);
-                border: 3px solid white;
-                box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4), 0 2px 4px rgba(0,0,0,0.2);
-                display: flex;
-                align-items: center;
-                justify-content: center;
+                position: absolute;
+                left: 70px;
+                top: 0;
+                background: #3b82f6;
                 color: white;
-                font-weight: bold;
-                font-size: 18px;
-              ">${userInitials}</div>
-            `}
-            <div style="
-              position: absolute;
-              bottom: -6px;
-              left: 50%;
-              transform: translateX(-50%);
-              width: 0;
-              height: 0;
-              border-left: 6px solid transparent;
-              border-right: 6px solid transparent;
-              border-top: 8px solid rgba(139, 92, 246, 0.3);
-            "></div>
+                font-size: 12px;
+                font-weight: 700;
+                padding: 4px 8px;
+                border-radius: 6px;
+                box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+                white-space: nowrap;
+                z-index: 10;
+              ">₹${budget.toLocaleString()}</div>
+            ` : budget === 0 ? `
+              <div style="
+                position: absolute;
+                left: 70px;
+                top: 0;
+                background: #10b981;
+                color: white;
+                font-size: 12px;
+                font-weight: 700;
+                padding: 4px 8px;
+                border-radius: 6px;
+                box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
+                white-space: nowrap;
+                z-index: 10;
+              ">🆓 Free</div>
+            ` : ''}
           </div>
         `,
-        iconSize: [56, 64],
-        iconAnchor: [28, 64],
-        popupAnchor: [0, -64]
+        iconSize: [80, 100],
+        iconAnchor: [30, 60],
+        popupAnchor: [0, -60]
       })
 
     const marker = L.marker([lat, lng], { icon: customIcon })
@@ -504,13 +532,25 @@ const Map = ({
         return String(text).replace(/[&<>"']/g, (m) => map[m])
     }
     
+    const formatTime = (hour) => {
+      if (hour === undefined || hour === null) return ''
+      const h = Math.floor(hour)
+      const m = Math.round((hour - h) * 60)
+      const period = h >= 12 ? 'PM' : 'AM'
+      const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h
+      return `${displayHour}:${m.toString().padStart(2, '0')} ${period}`
+    }
+    
+    const timeSlot = exp.timeSlot || (exp.startTime !== undefined && exp.startTime < 12 ? 'morning' : exp.startTime !== undefined && exp.startTime < 17 ? 'afternoon' : exp.startTime !== undefined && exp.startTime < 21 ? 'evening' : 'night')
+    const displayTime = exp.startTime !== undefined && exp.startTime !== null ? formatTime(exp.startTime) : ''
+    
     const tooltipContent = `
-        <div style="min-width: 220px; max-width: 280px; font-family: system-ui, -apple-system, sans-serif; padding: 12px; background: white; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05); overflow-wrap: break-word; word-wrap: break-word; box-sizing: border-box;">
-          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
+        <div style="width: 280px; font-family: system-ui, -apple-system, sans-serif; padding: 16px; background: white; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05); box-sizing: border-box;">
+          <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px;">
             ${tooltipDisplayImage ? `
               <div style="
-                width: 48px;
-                height: 48px;
+                width: 56px;
+                height: 56px;
                 border-radius: 50%;
                 border: 2px solid #e5e7eb;
                 overflow: hidden;
@@ -526,13 +566,13 @@ const Map = ({
                     object-fit: cover;
                     display: block;
                   "
-                  onerror="this.onerror=null; this.style.display='none'; this.parentElement.innerHTML='<div style=\\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:16px\\'>${escapeHtml(tooltipUserInitials)}</div>'"
+                  onerror="this.onerror=null; this.style.display='none'; this.parentElement.innerHTML='<div style=\\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:18px\\'>${escapeHtml(tooltipUserInitials)}</div>'"
                 />
               </div>
             ` : `
               <div style="
-                width: 48px;
-                height: 48px;
+                width: 56px;
+                height: 56px;
                 border-radius: 50%;
                 background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #4f46e5 100%);
                 display: flex;
@@ -540,35 +580,75 @@ const Map = ({
                 justify-content: center;
                 color: white;
                 font-weight: bold;
-                font-size: 16px;
+                font-size: 18px;
                 border: 2px solid #e5e7eb;
                 flex-shrink: 0;
               ">${escapeHtml(tooltipUserInitials)}</div>
             `}
             <div style="flex: 1; min-width: 0;">
-              <h3 style="margin: 0 0 4px 0; font-size: 15px; font-weight: 600; color: #1f2937; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;">${escapeHtml(tripName)}</h3>
-              <p style="margin: 0; font-size: 12px; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;">by ${escapeHtml(tooltipUserName)}</p>
+              <h3 style="margin: 0 0 4px 0; font-size: 16px; font-weight: 700; color: #1f2937; line-height: 1.3; word-wrap: break-word; overflow-wrap: break-word; word-break: break-word; white-space: normal;">${escapeHtml(tripName)}</h3>
+              <p style="margin: 0; font-size: 13px; color: #6b7280; line-height: 1.3; word-wrap: break-word; overflow-wrap: break-word; word-break: break-word; white-space: normal;">hosted by ${escapeHtml(tooltipUserName)}</p>
             </div>
-          </div>
-          <div style="display: flex; gap: 16px; margin-bottom: 8px; font-size: 12px; color: #6b7280;">
-            <span style="display: flex; align-items: center; gap: 4px;">👥 ${exp.membersInvolved?.length || exp.participants || 0}</span>
-            ${exp.budget !== undefined ? `<span style="display: flex; align-items: center; gap: 4px;">${exp.budget === 0 ? '🆓 Free' : `💰 ₹${exp.budget.toLocaleString()}`}</span>` : ''}
           </div>
           ${location ? `
-            <div style="font-size: 11px; color: #9ca3af; margin-bottom: 8px; line-height: 1.5; word-wrap: break-word; overflow-wrap: break-word; max-width: 100%;">
-              <span style="display: inline-block; margin-right: 4px; flex-shrink: 0;">📍</span>
-              <span style="display: inline; word-break: break-word; overflow-wrap: anywhere;">${escapeHtml(location)}</span>
+            <div style="font-size: 13px; color: #6b7280; margin-bottom: 12px; line-height: 1.5; display: flex; align-items: flex-start; gap: 6px;">
+              <span style="flex-shrink: 0; margin-top: 2px; color: #ef4444;">📍</span>
+              <span style="flex: 1; min-width: 0; word-wrap: break-word; overflow-wrap: break-word; word-break: break-word; white-space: normal;">${escapeHtml(location)}</span>
             </div>
           ` : ''}
-          <div style="font-size: 10px; color: #9ca3af; padding-top: 8px; border-top: 1px solid #e5e7eb; text-align: center; font-weight: 500;">
-            Click for details
+          <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+            ${timeSlot ? `
+              <div style="
+                background: #dbeafe;
+                color: #1e40af;
+                font-size: 12px;
+                font-weight: 600;
+                padding: 6px 12px;
+                border-radius: 8px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+              ">
+                <span>📅</span>
+                <span style="text-transform: capitalize;">${timeSlot}</span>
+              </div>
+            ` : ''}
+            ${displayTime ? `
+              <div style="
+                background: #dbeafe;
+                color: #1e40af;
+                font-size: 12px;
+                font-weight: 600;
+                padding: 6px 12px;
+                border-radius: 8px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+              ">
+                <span>🕐</span>
+                <span>${displayTime}</span>
+              </div>
+            ` : ''}
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            ${exp.budget !== undefined ? `
+              <div style="
+                background: #3b82f6;
+                color: white;
+                font-size: 14px;
+                font-weight: 700;
+                padding: 8px 16px;
+                border-radius: 8px;
+                white-space: nowrap;
+              ">${exp.budget === 0 ? '🆓 Free' : `₹${exp.budget.toLocaleString()}`}</div>
+            ` : ''}
           </div>
         </div>
       `
 
     marker.bindTooltip(tooltipContent, {
-      direction: 'top',
-      offset: [0, -25],
+      direction: 'right',
+      offset: [10, 0],
       className: 'custom-tooltip',
       permanent: false,
       interactive: true,
@@ -649,6 +729,7 @@ const Map = ({
     const userInitials = userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'
     const tripName = exp.name || 'Trip'
     const imageAlt = exp.name || exp.location || exp.destination || userName
+    const budget = exp.budget || 0
     
     // Create a larger block icon for zoomed in view
     const blockIcon = L.divIcon({
@@ -656,69 +737,98 @@ const Map = ({
       html: `
         <div class="block-container" style="
           position: relative;
-          width: 80px;
-          height: 80px;
+          width: 100px;
+          height: 120px;
           display: flex;
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          transform: rotate(${index * 15}deg);
+          transform: rotate(${index * 5}deg);
           transition: transform 0.3s ease;
         ">
           <div style="
-            width: 72px;
-            height: 72px;
-            border-radius: 12px;
-            border: 3px solid white;
-            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.5), 0 2px 8px rgba(0,0,0,0.3);
+            position: relative;
+            width: 80px;
+            height: 80px;
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg);
+            border: 4px solid white;
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5), 0 2px 8px rgba(0,0,0,0.3);
             overflow: hidden;
-            background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #4f46e5 100%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 8px;
+            background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 50%, #93c5fd 100%);
           ">
-            ${displayImage ? `
-              <img 
-                src="${displayImage}" 
-                alt="${imageAlt}"
-                style="
+            <div style="
+              position: absolute;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%) rotate(45deg);
+              width: 100%;
+              height: 100%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            ">
+              ${displayImage ? `
+                <img 
+                  src="${displayImage}" 
+                  alt="${imageAlt}"
+                  style="
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                  "
+                  onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:20px\\'>${userInitials}</div>'"
+                />
+              ` : `
+                <div style="
                   width: 100%;
                   height: 100%;
-                  object-fit: cover;
-                "
-                onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:20px\\'>${userInitials}</div>'"
-              />
-            ` : `
-              <div style="
-                width: 100%;
-                height: 100%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color: white;
-                font-weight: bold;
-                font-size: 24px;
-              ">${userInitials}</div>
-            `}
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  color: white;
+                  font-weight: bold;
+                  font-size: 24px;
+                ">${userInitials}</div>
+              `}
+            </div>
           </div>
-          <div style="
-            position: absolute;
-            bottom: -8px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 0;
-            height: 0;
-            border-left: 8px solid transparent;
-            border-right: 8px solid transparent;
-            border-top: 10px solid rgba(139, 92, 246, 0.4);
-          "></div>
+          ${budget > 0 ? `
+            <div style="
+              position: absolute;
+              left: 90px;
+              top: 0;
+              background: #3b82f6;
+              color: white;
+              font-size: 13px;
+              font-weight: 700;
+              padding: 5px 10px;
+              border-radius: 8px;
+              box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+              white-space: nowrap;
+              z-index: 10;
+            ">₹${budget.toLocaleString()}</div>
+          ` : budget === 0 ? `
+            <div style="
+              position: absolute;
+              left: 90px;
+              top: 0;
+              background: #10b981;
+              color: white;
+              font-size: 13px;
+              font-weight: 700;
+              padding: 5px 10px;
+              border-radius: 8px;
+              box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
+              white-space: nowrap;
+              z-index: 10;
+            ">🆓 Free</div>
+          ` : ''}
         </div>
       `,
-      iconSize: [80, 90],
-      iconAnchor: [40, 90],
-      popupAnchor: [0, -90]
+      iconSize: [100, 120],
+      iconAnchor: [40, 80],
+      popupAnchor: [0, -80]
     })
 
     const marker = L.marker([lat, lng], { icon: blockIcon })
@@ -736,13 +846,25 @@ const Map = ({
       return String(text).replace(/[&<>"']/g, (m) => map[m])
     }
     
+    const formatTime = (hour) => {
+      if (hour === undefined || hour === null) return ''
+      const h = Math.floor(hour)
+      const m = Math.round((hour - h) * 60)
+      const period = h >= 12 ? 'PM' : 'AM'
+      const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h
+      return `${displayHour}:${m.toString().padStart(2, '0')} ${period}`
+    }
+    
+    const timeSlot = exp.timeSlot || (exp.startTime !== undefined && exp.startTime < 12 ? 'morning' : exp.startTime !== undefined && exp.startTime < 17 ? 'afternoon' : exp.startTime !== undefined && exp.startTime < 21 ? 'evening' : 'night')
+    const displayTime = exp.startTime !== undefined && exp.startTime !== null ? formatTime(exp.startTime) : ''
+    
     const tooltipContent = `
-      <div style="min-width: 220px; max-width: 280px; font-family: system-ui, -apple-system, sans-serif; padding: 12px; background: white; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05); overflow-wrap: break-word; word-wrap: break-word; box-sizing: border-box;">
-        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
+      <div style="width: 280px; font-family: system-ui, -apple-system, sans-serif; padding: 16px; background: white; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05); box-sizing: border-box;">
+        <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px;">
           ${displayImage ? `
             <div style="
-              width: 48px;
-              height: 48px;
+              width: 56px;
+              height: 56px;
               border-radius: 50%;
               border: 2px solid #e5e7eb;
               overflow: hidden;
@@ -758,13 +880,13 @@ const Map = ({
                   object-fit: cover;
                   display: block;
                 "
-                onerror="this.onerror=null; this.style.display='none'; this.parentElement.innerHTML='<div style=\\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:16px\\'>${escapeHtml(userInitials)}</div>'"
+                onerror="this.onerror=null; this.style.display='none'; this.parentElement.innerHTML='<div style=\\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:18px\\'>${escapeHtml(userInitials)}</div>'"
               />
             </div>
           ` : `
             <div style="
-              width: 48px;
-              height: 48px;
+              width: 56px;
+              height: 56px;
               border-radius: 50%;
               background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #4f46e5 100%);
               display: flex;
@@ -772,34 +894,75 @@ const Map = ({
               justify-content: center;
               color: white;
               font-weight: bold;
-              font-size: 16px;
+              font-size: 18px;
               border: 2px solid #e5e7eb;
               flex-shrink: 0;
             ">${escapeHtml(userInitials)}</div>
           `}
           <div style="flex: 1; min-width: 0;">
-            <h3 style="margin: 0 0 4px 0; font-size: 15px; font-weight: 600; color: #1f2937; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;">${escapeHtml(tripName)}</h3>
-            <p style="margin: 0; font-size: 12px; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;">by ${escapeHtml(userName)}</p>
+            <h3 style="margin: 0 0 4px 0; font-size: 16px; font-weight: 700; color: #1f2937; line-height: 1.3; word-wrap: break-word; overflow-wrap: break-word; word-break: break-word; white-space: normal;">${escapeHtml(tripName)}</h3>
+            <p style="margin: 0; font-size: 13px; color: #6b7280; line-height: 1.3; word-wrap: break-word; overflow-wrap: break-word; word-break: break-word; white-space: normal;">hosted by ${escapeHtml(userName)}</p>
           </div>
-        </div>
-        <div style="display: flex; gap: 16px; margin-bottom: 8px; font-size: 12px; color: #6b7280;">
-          <span style="display: flex; align-items: center; gap: 4px;">👥 ${exp.membersInvolved?.length || exp.participants || 0}</span>
-          ${exp.budget !== undefined ? `<span style="display: flex; align-items: center; gap: 4px;">${exp.budget === 0 ? '🆓 Free' : `💰 ₹${exp.budget.toLocaleString()}`}</span>` : ''}
         </div>
         ${exp.location || exp.destination ? `
-          <div style="font-size: 11px; color: #9ca3af; margin-bottom: 8px; display: flex; align-items: center; gap: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-            📍 ${escapeHtml(exp.location || exp.destination)}
+          <div style="font-size: 13px; color: #6b7280; margin-bottom: 12px; line-height: 1.5; display: flex; align-items: flex-start; gap: 6px;">
+            <span style="flex-shrink: 0; margin-top: 2px; color: #ef4444;">📍</span>
+            <span style="flex: 1; min-width: 0; word-wrap: break-word; overflow-wrap: break-word; word-break: break-word; white-space: normal;">${escapeHtml(exp.location || exp.destination)}</span>
           </div>
         ` : ''}
-        <div style="font-size: 10px; color: #9ca3af; padding-top: 8px; border-top: 1px solid #e5e7eb; text-align: center; font-weight: 500;">
-          Click for details
+        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+          ${timeSlot ? `
+            <div style="
+              background: #dbeafe;
+              color: #1e40af;
+              font-size: 12px;
+              font-weight: 600;
+              padding: 6px 12px;
+              border-radius: 8px;
+              display: flex;
+              align-items: center;
+              gap: 6px;
+            ">
+              <span>📅</span>
+              <span style="text-transform: capitalize;">${timeSlot}</span>
+            </div>
+          ` : ''}
+          ${displayTime ? `
+            <div style="
+              background: #dbeafe;
+              color: #1e40af;
+              font-size: 12px;
+              font-weight: 600;
+              padding: 6px 12px;
+              border-radius: 8px;
+              display: flex;
+              align-items: center;
+              gap: 6px;
+            ">
+              <span>🕐</span>
+              <span>${displayTime}</span>
+            </div>
+          ` : ''}
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          ${exp.budget !== undefined ? `
+            <div style="
+              background: #3b82f6;
+              color: white;
+              font-size: 14px;
+              font-weight: 700;
+              padding: 8px 16px;
+              border-radius: 8px;
+              white-space: nowrap;
+            ">${exp.budget === 0 ? '🆓 Free' : `₹${exp.budget.toLocaleString()}`}</div>
+          ` : ''}
         </div>
       </div>
     `
 
     marker.bindTooltip(tooltipContent, {
-      direction: 'top',
-      offset: [0, -45],
+      direction: 'right',
+      offset: [10, 0],
       className: 'custom-tooltip',
       permanent: false,
       interactive: true,
@@ -898,83 +1061,97 @@ const Map = ({
       html: `
         <div class="block-container" style="
           position: relative;
-          width: 90px;
-          height: 90px;
+          width: 100px;
+          height: 120px;
           display: flex;
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          transform: rotate(${index * 10}deg);
+          transform: rotate(${index * 5}deg);
           transition: transform 0.3s ease;
         ">
           <div style="
+            position: relative;
             width: 80px;
             height: 80px;
-            border-radius: 16px;
-            border: 3px solid white;
-            box-shadow: 0 8px 24px rgba(139, 92, 246, 0.6), 0 2px 8px rgba(0,0,0,0.3);
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg);
+            border: 4px solid white;
+            box-shadow: 0 8px 24px rgba(59, 130, 246, 0.6), 0 2px 8px rgba(0,0,0,0.3);
             overflow: hidden;
-            background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #4f46e5 100%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 0;
-            position: relative;
+            background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 50%, #93c5fd 100%);
           ">
-            ${locationImage ? `
-              <img 
-                src="${safeImageUrl}" 
-                alt="${safeExperienceName}"
-                style="
-                  width: 100%;
-                  height: 100%;
-                  object-fit: cover;
-                  display: block;
-                "
-                onerror="this.onerror=null; this.style.display='none'; this.parentElement.innerHTML='<div style=\\'width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:14px;text-align:center;padding:10px;line-height:1.2\\'>${safeShortName}${experienceName.length > 8 ? '...' : ''}</div>'"
-              />
-            ` : `
-              <div style="
-                color: white;
-                font-weight: bold;
-                font-size: 14px;
-                text-align: center;
-                line-height: 1.2;
-                padding: 10px;
-              ">${safeShortName}${experienceName.length > 8 ? '...' : ''}</div>
-            `}
-            ${price > 0 ? `
-              <div style="
-                position: absolute;
-                bottom: 4px;
-                right: 4px;
-                background: rgba(255, 255, 255, 0.9);
-                color: #8b5cf6;
-                font-size: 10px;
-                font-weight: bold;
-                padding: 2px 6px;
-                border-radius: 8px;
-                z-index: 10;
-              ">₹${price}</div>
-            ` : ''}
+            <div style="
+              position: absolute;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%) rotate(45deg);
+              width: 100%;
+              height: 100%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            ">
+              ${locationImage ? `
+                <img 
+                  src="${safeImageUrl}" 
+                  alt="${safeExperienceName}"
+                  style="
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                    display: block;
+                  "
+                  onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\'width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:14px;text-align:center;padding:10px;line-height:1.2\\'>${safeShortName}${experienceName.length > 8 ? '...' : ''}</div>'"
+                />
+              ` : `
+                <div style="
+                  color: white;
+                  font-weight: bold;
+                  font-size: 14px;
+                  text-align: center;
+                  line-height: 1.2;
+                  padding: 10px;
+                ">${safeShortName}${experienceName.length > 8 ? '...' : ''}</div>
+              `}
+            </div>
           </div>
-          <div style="
-            position: absolute;
-            bottom: -10px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 0;
-            height: 0;
-            border-left: 10px solid transparent;
-            border-right: 10px solid transparent;
-            border-top: 12px solid rgba(139, 92, 246, 0.5);
-          "></div>
+          ${price > 0 ? `
+            <div style="
+              position: absolute;
+              left: 90px;
+              top: 0;
+              background: #3b82f6;
+              color: white;
+              font-size: 12px;
+              font-weight: 700;
+              padding: 4px 8px;
+              border-radius: 6px;
+              box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+              white-space: nowrap;
+              z-index: 10;
+            ">₹${price.toLocaleString()}</div>
+          ` : price === 0 ? `
+            <div style="
+              position: absolute;
+              left: 90px;
+              top: 0;
+              background: #10b981;
+              color: white;
+              font-size: 12px;
+              font-weight: 700;
+              padding: 4px 8px;
+              border-radius: 6px;
+              box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
+              white-space: nowrap;
+              z-index: 10;
+            ">🆓 Free</div>
+          ` : ''}
         </div>
       `,
-      iconSize: [90, 100],
-      iconAnchor: [45, 100],
-      popupAnchor: [0, -100]
+      iconSize: [100, 120],
+      iconAnchor: [40, 80],
+      popupAnchor: [0, -80]
     })
 
     const marker = L.marker([lat, lng], { icon: blockIcon })
@@ -989,33 +1166,125 @@ const Map = ({
       return `${displayHour}:${m.toString().padStart(2, '0')} ${period}`
     }
     
+    const displayTime = item.startTime !== undefined && item.startTime !== null ? formatTime(item.startTime) : ''
+    const userName = item.createdBy?.name || tripName
+    const userInitials = userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'
+    
     const tooltipContent = `
-      <div style="min-width: 240px; max-width: 300px; font-family: system-ui, -apple-system, sans-serif; padding: 14px; background: white; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05); overflow-wrap: break-word; word-wrap: break-word; box-sizing: border-box;">
-        <div style="margin-bottom: 10px;">
-          <h3 style="margin: 0 0 6px 0; font-size: 16px; font-weight: 600; color: #1f2937; line-height: 1.3;">${escapeHtml(experienceName)}</h3>
-          <p style="margin: 0; font-size: 12px; color: #6b7280;">${escapeHtml(tripName)}</p>
-        </div>
-        <div style="display: flex; gap: 12px; margin-bottom: 8px; font-size: 12px; color: #6b7280;">
-          ${item.startTime !== undefined && item.startTime !== null ? `<span>🕐 ${formatTime(item.startTime)}</span>` : ''}
-          ${timeSlot ? `<span>📅 ${timeSlot}</span>` : ''}
+      <div style="width: 280px; font-family: system-ui, -apple-system, sans-serif; padding: 16px; background: white; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05); box-sizing: border-box;">
+        <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px;">
+          ${locationImage ? `
+            <div style="
+              width: 56px;
+              height: 56px;
+              border-radius: 50%;
+              border: 2px solid #e5e7eb;
+              overflow: hidden;
+              background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #4f46e5 100%);
+              flex-shrink: 0;
+            ">
+              <img 
+                src="${safeImageUrl}" 
+                alt="${safeExperienceName}"
+                style="
+                  width: 100%;
+                  height: 100%;
+                  object-fit: cover;
+                  display: block;
+                "
+                onerror="this.onerror=null; this.style.display='none'; this.parentElement.innerHTML='<div style=\\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:18px\\'>${escapeHtml(userInitials)}</div>'"
+              />
+            </div>
+          ` : `
+            <div style="
+              width: 56px;
+              height: 56px;
+              border-radius: 50%;
+              background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #4f46e5 100%);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              color: white;
+              font-weight: bold;
+              font-size: 18px;
+              border: 2px solid #e5e7eb;
+              flex-shrink: 0;
+            ">${escapeHtml(userInitials)}</div>
+          `}
+          <div style="flex: 1; min-width: 0;">
+            <h3 style="margin: 0 0 4px 0; font-size: 16px; font-weight: 700; color: #1f2937; line-height: 1.3; word-wrap: break-word; overflow-wrap: break-word; word-break: break-word; white-space: normal;">${escapeHtml(experienceName)}</h3>
+            <p style="margin: 0; font-size: 13px; color: #6b7280; line-height: 1.3; word-wrap: break-word; overflow-wrap: break-word; word-break: break-word; white-space: normal;">hosted by ${escapeHtml(userName)}</p>
+          </div>
         </div>
         ${location ? `
-          <div style="font-size: 11px; color: #9ca3af; margin-bottom: 8px; line-height: 1.5; word-wrap: break-word; overflow-wrap: break-word; max-width: 100%;">
-            <span style="display: inline-block; margin-right: 4px; flex-shrink: 0;">📍</span>
-            <span style="display: inline; word-break: break-word; overflow-wrap: anywhere;">${escapeHtml(location)}</span>
+          <div style="font-size: 13px; color: #6b7280; margin-bottom: 12px; line-height: 1.5; display: flex; align-items: flex-start; gap: 6px;">
+            <span style="flex-shrink: 0; margin-top: 2px; color: #ef4444;">📍</span>
+            <span style="flex: 1; min-width: 0; word-wrap: break-word; overflow-wrap: break-word; word-break: break-word; white-space: normal;">${escapeHtml(location)}</span>
           </div>
         ` : ''}
-        ${price > 0 ? `
-          <div style="font-size: 13px; color: #8b5cf6; font-weight: 600; margin-top: 8px; padding-top: 8px; border-top: 1px solid #e5e7eb;">
-            ₹${price.toLocaleString()}
-          </div>
-        ` : ''}
+        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+          ${timeSlot ? `
+            <div style="
+              background: #dbeafe;
+              color: #1e40af;
+              font-size: 12px;
+              font-weight: 600;
+              padding: 6px 12px;
+              border-radius: 8px;
+              display: flex;
+              align-items: center;
+              gap: 6px;
+            ">
+              <span>📅</span>
+              <span style="text-transform: capitalize;">${timeSlot}</span>
+            </div>
+          ` : ''}
+          ${displayTime ? `
+            <div style="
+              background: #dbeafe;
+              color: #1e40af;
+              font-size: 12px;
+              font-weight: 600;
+              padding: 6px 12px;
+              border-radius: 8px;
+              display: flex;
+              align-items: center;
+              gap: 6px;
+            ">
+              <span>🕐</span>
+              <span>${displayTime}</span>
+            </div>
+          ` : ''}
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          ${price > 0 ? `
+            <div style="
+              background: #3b82f6;
+              color: white;
+              font-size: 14px;
+              font-weight: 700;
+              padding: 8px 16px;
+              border-radius: 8px;
+              white-space: nowrap;
+            ">₹${price.toLocaleString()}</div>
+          ` : price === 0 ? `
+            <div style="
+              background: #10b981;
+              color: white;
+              font-size: 14px;
+              font-weight: 700;
+              padding: 8px 16px;
+              border-radius: 8px;
+              white-space: nowrap;
+            ">🆓 Free</div>
+          ` : ''}
+        </div>
       </div>
     `
 
     marker.bindTooltip(tooltipContent, {
-      direction: 'top',
-      offset: [0, -50],
+      direction: 'right',
+      offset: [10, 0],
       className: 'custom-tooltip',
       permanent: false,
       interactive: true,
