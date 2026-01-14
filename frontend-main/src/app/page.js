@@ -44,7 +44,7 @@ export default function LandingPage() {
             transition: "opacity 1.2s ease-in-out",
           }}
         >
-          <source src="https://res.cloudinary.com/dlfs3xnsa/video/upload/v1765324125/10100717-uhd_2560_1440_30fps_wkknqi.mp4" type="video/mp4" />
+          <source src="https://res.cloudinary.com/dvv0qqfzq/video/upload/v1768367767/10100717-uhd_2560_1440_30fps_d1rlvu.mp4" type="video/mp4" />
         </video>
         
         {/* Gradient Overlay - increased opacity for less transparency */}
